@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ufo"
+version = "0.01"
+description = "Unreliable but Fast Optics code"
+readme = "README.md"
+authors = [
+    { name = "Michele Carla'", email = "mcarla@cells.es" },
+]
+license = { file = "COPYING" }
+dependencies = [
+    "pyopencl",
+    "docopt",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/mcarla/ufo"
+Documentation = "https://github.com/mcarla/ufo/blob/main/HOWTO.md"
