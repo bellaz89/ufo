@@ -36,8 +36,14 @@ inline void load_next_offset(__global const inst_t* inst, uint* inst_offset,
 inline void load_first_offset(__global const inst_t* inst, uint* inst_offset,
                               __local inst_t* inst_buf, uint* inst_current,
                               const uint inst_buf_size) {
-  *inst_offset = 0;
-  load_next_offset(inst, inst_offset, inst_buf, inst_current, inst_buf_size);
+
+  // If there is only one offset, do not reload it
+  if (*inst_offset == inst_buf_size && *inst_current != 0) {
+    *inst_current = 0;
+  } else {
+    *inst_offset = 0;
+    load_next_offset(inst, inst_offset, inst_buf, inst_current, inst_buf_size);
+  }
 }
 
 // Dumps particle data in the global memory
