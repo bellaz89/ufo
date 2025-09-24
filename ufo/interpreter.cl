@@ -1,152 +1,161 @@
 
-typedef uchar inst_buf_t;
-typedef ulong2 inst_load_t;
-
-#ifdef inst_64
-typedef short op_t;
-typedef ushort flags_t;
-typedef ushort intarg_t;
-#else
-typedef char op_t;
-typedef uchar flags_t;
-typedef uchar intarg_t;
-#endif
-
-typedef struct { op_t op; 
-                 flags_t flags; 
-                 intarg_t arg0;
-                 intarg_t arg1; } inst_t;
-
-#define OP_REWIND      -1
+#include "instructions.cl"
+#define OP_REWIND -1
 #define OP_NEXT_OFFSET -2
-#define OP_ALIGN        0
-#define OP_DRIFT        1
-#define OP_KICK         2
-#define OP_TEAPOT       3
-#define OP_QUADRUPOLE   4
-#define OP_SBEND        5
-#define OP_EDGE         6
-#define OP_SEXTUPOLE    7
-#define OP_OCTUPOLE     8
-#define OP_WIRE         9
-#define OP_CAVITY      10
+#define OP_DUMP -3
 
+// Kills the particle if ouside aperture
+// Updates the passed elements if the particle is alive
+inline void update_passed_if_alive(particle_work_t* part_data) {
+  float_t center_distance = part_data->particle.x * part_data->particle.x;
+  center_distance += part_data->particle.y * part_data->particle.y;
+  part_data->particle.alive &= center_distance < part_data->aperture_sq;
+  part_data->particle.passed_elements += part_data->particle.alive ? 1 : 0;
+}
 
-#define FLAG_LINEAR           (1 << 0)
-#define FLAG_FIVED            (1 << 1)
-#define FLAG_EXACT            (1 << 2)
-#define FLAG_KICK             (1 << 3)
-#define FLAG_RADIATION        (1 << 4)
-#define FLAG_DOUBLE_PRECISION (1 << 5)
-#define FLAG_ACHROMATIC       (1 << 6)
+// Loads next instruction offset in the instruction buffer
+inline void load_next_offset(__global const inst_t* inst, uint* inst_offset,
+                             __local inst_t* inst_buf, uint* inst_current,
+                             const uint inst_buf_size) {
+  const uint lidx = get_local_id(0);
+  const uint lsize = get_local_size(0);
 
-#ifdef data_64
-typedef double float_t;
-#else
-typedef float float_t;
-#endif
+  barrier(CLK_LOCAL_MEM_FENCE);
 
-typedef struct {
-                float_t x, y, z;
-                float_t px, py, dp;
-               } particle_t;
-
-inline void load_inst_offset(inst_load_t** inst_offset,
-                             inst_buf_t** inst_current,
-                             inst_buf_t* inst_buf,
-                             const ulong inst_buf_size) {
-
-  const size_t lidx = get_local_id(0);
-  const size_t lsize = get_local_size(0);
-  const size_t load_words = inst_buf_size / sizeof(inst_load_t);
-
-  __global inst_load_t* curr_offset = *inst_offset;
-  __local inst_load_t* inst_buf_load = (inst_load_t*) inst_buf;
-  
-  for (size_t i = lidx; i < load_words; i += lsize) {
-    inst_buf_load_t[i] = curr_offset[i];
+  for (uint i = lidx; i < inst_buf_size; i += lsize) {
+    inst_buf[i] = inst[*inst_offset + i];
   }
 
   barrier(CLK_LOCAL_MEM_FENCE);
 
-  *inst_offset += load_words;
-  *inst_current = inst_buf;
+  *inst_offset += inst_buf_size;
+  *inst_current = 0;
 }
 
-inline void load_inst_first_offset(inst_loat_t* inst,
-                                   inst_load_t** inst_offset,
-                                   inst_buf_t** inst_current,
-                                   inst_buf_t* inst_buf,
-                                   const ulong inst_buf_size) {
-
-  *inst_offset = inst;
-  load_offset(inst_offset, inst_current, inst_buf, inst_buf_size);
+// Loads the first instruction offset in the instruction buffer
+inline void load_first_offset(__global const inst_t* inst, uint* inst_offset,
+                              __local inst_t* inst_buf, uint* inst_current,
+                              const uint inst_buf_size) {
+  *inst_offset = 0;
+  load_next_offset(inst, inst_offset, inst_buf, inst_current, inst_buf_size);
 }
 
-__kernel void run(__global const particle_t* input, 
-                  __global particle_t* output,
-                  __global inst_load_t* inst,
-                  __local inst_buf_t* inst_buf,
-                  const ulong particles,
-                  const ulong inst_buf_size,
-                  const ulong turns) {
-  
-  particle_t particle;
-  __local inst_buf_t* inst_current;
-  __global inst_load_t* inst_offset;
-
-  const size_t idx = get_global_id(0);
-
+// Dumps particle data in the global memory
+inline void dump_particles(particle_work_t* part_data,
+                           __global particle_t* output, uint* dump_offset,
+                           const uint particles) {
+  const uint idx = get_global_id(0);
   if (idx < particles) {
-    particle = input[idx];
+    output[idx + *dump_offset] = part_data->particle;
   }
-  
-  for (ulong turn = 0; turn < turns; turns++) {
-    load_inst_first_offset(inst, &inst_offset, &inst_current, inst_buf, inst_buf_size);
+  *dump_offset += particles;
+}
 
-    while (true) {
-      __local op_t* op = inst_current;
-      switch (*op) {
-        case OP_NEXT_OFFSET: {
-                              load_inst_offset(&inst_offset, &inst_current, inst_buf, inst_buf_size);
-                              break;}
-        case OP_ALIGN      : {
-                              inst_current += align_args_size(args);
-                              break;}
-        case OP_DRIFT      : {
-                              inst_current += drift_args_size(args);
-                              break;}
-        case OP_KICK       : {
-                              inst_current += kick_args_size(args);
-                              break;}
-        case OP_TEAPOT     : {
-                              inst_current += teapot_args_size(args);
-                              break;}
-        case OP_QUADRUPOLE : {
-                              inst_current += quadrupole_args_size(args);
-                              break;}
-        case OP_SBEND      : {
-                              inst_current += sbend_args_size(args);
-                              break;}
-        case OP_EDGE       : {
-                              inst_current += edge_args_size(args);
-                              break;}
-        case OP_SEXTUPOLE  : {
-                              inst_current += sextupole_args_size(args);
-                              break;}
-        case OP_OCTUPOLE   : {
-                              inst_current += octupole_args_size(args);
-                              break;}
-        case OP_WIRE       : {
-                              inst_current += wire_args_size(args);
-                              break;}
-        case OP_CAVITY     : {
-                              inst_current += cavity_args_size(args);
-                              break;}
-        default: goto turn_end; // Case for OP_REWIND
+__kernel void run(__global const particle_t* input, __global particle_t* output,
+                  __global inst_t* inst, __local inst_t* inst_buf,
+                  const uint particles, const uint inst_buf_size,
+                  const uint turns) {
+  particle_work_t part_data;
+  uint inst_offset;
+  uint inst_current;
+  uint dump_offset = 0;
+
+  const uint idx = get_global_id(0);
+
+  if (turns == 0) {
+    return;
+  }
+
+  // Particle load
+  if (idx < particles) {
+    part_data.particle = input[idx];
+    update_oodppo(&part_data);
+    part_data.aperture_sq = FLOAT_MAX;
+  }
+
+  uint turn = 0;
+  load_first_offset(inst, &inst_offset, inst_buf, &inst_current, inst_buf_size);
+
+  while (true) {
+    // Instruction decoding
+    const inst_t inst_decoded = inst_buf[inst_current];
+    const op_t op = inst_decoded.op;
+    const flags_t flags = inst_decoded.op;
+    const intarg_t args0 = inst_decoded.args0;
+    const intarg_t args1 = inst_decoded.args1;
+
+    inst_current += 1;
+    __local const float_t* args0_arr =
+        (__local float_t*)(inst_buf + inst_current);
+    inst_current += args0;
+    __local const float_t* args1_arr =
+        (__local float_t*)(inst_buf + inst_current);
+    inst_current += args1;
+
+    switch (op) {
+      case OP_NEXT_OFFSET: {
+        load_next_offset(inst, &inst_offset, inst_buf, &inst_current,
+                         inst_buf_size);
+        break;
+      }
+      case OP_DUMP: {
+        dump_particles(&part_data, output, &dump_offset, particles);
+        break;
+      }
+      case OP_ALIGN: {
+        align(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        break;
+      }
+      case OP_DRIFT: {
+        drift(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        break;
+      }
+      case OP_KICK: {
+        kick(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        break;
+      }
+      case OP_TEAPOT: {
+        teapot(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        break;
+      }
+      case OP_QUADRUPOLE: {
+        quadrupole(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        break;
+      }
+      case OP_SBEND: {
+        sbend(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        break;
+      }
+      case OP_EDGE: {
+        edge(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        break;
+      }
+      case OP_WIRE: {
+        wire(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        break;
+      }
+      case OP_CAVITY: {
+        cavity(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        break;
+      }
+      case OP_TRAV_LINEAR: {
+        trav_linear(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        break;
+      }
+      case OP_SET_APERTURE: {
+        set_aperture(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        break;
+      }
+      default: {  // Case for OP_REWIND.
+        turn++;
+        if (turn == turns) {
+          return;
+        }
+        load_first_offset(inst, &inst_offset, inst_buf, &inst_current,
+                          inst_buf_size);
+        break;
       }
     }
-
-    turn_end:
+    update_passed_if_alive(&part_data);
   }
 }
