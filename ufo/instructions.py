@@ -8,9 +8,9 @@ OP_DUMP = -3
 OP_DRIFT = 1
 OP_KICK = 2
 OP_TEAPOT = 3
+OP_QUADRUPOLE = 4
 OP_SBEND = 5
 OP_EDGE = 6
-OP_OCTUPOLE = 8
 OP_WIRE = 9
 OP_CAVITY = 10
 OP_TRAN_LINEAR = 11
@@ -52,6 +52,7 @@ FLAGS_TRAN_LINEAR[FLAG_NO_APERTURE_CHECK] = "NO_APERTURE_CHECK"
 CODE32_FORMAT = ("<BBBB", "f")
 CODE64_FORMAT = ("<HHHH", "d")
 
+
 def format_flags_generic(flags, flags_dict):
     identifiers = [
         identifier for flag, identifier in flags_dict.items() if identifier & flags
@@ -63,7 +64,7 @@ def format_flags(flags):
     return format_flags_generic(flags, FLAGS)
 
 
-def format_flags_trav_linear(flags):
+def format_flags_tran_linear(flags):
     return format_flags_generic(flags, FLAGS_TRAN_LINEAR)
 
 
@@ -83,8 +84,9 @@ def pack64(op, flags, args0_arr, args1_arr):
 
 
 class Instruction:
+
     def __init__(
-        self, op, flags, args0_arr, args1_arr=[], name="unknown", itype="unknown"
+        self, op, flags=0, args0_arr=[], args1_arr=[], name="unknown", itype="unknown"
     ):
         self._name = name
         self._type = itype
@@ -140,10 +142,131 @@ class Instruction:
         else:
             return pack32(self.op, self.flags, self.args0_arr, self.args1_arr)
 
-class 
+
+class Rewind(Instruction):
+    def __init__(self, name):
+        super().__init__(
+            OP_REWIND, flags=FLAG_NO_APERTURE_CHECK, name=name, itype="rewind"
+        )
+
+
+class NextOffset(Instruction):
+    def __init__(self, name):
+        super().__init__(
+            OP_NEXT_OFFSET, flags=FLAG_NO_APERTURE_CHECK, name=name, itype="next_offset"
+        )
+
+
+class Dump(Instruction):
+    def __init__(self, name):
+        super().__init__(OP_DUMP, flags=FLAG_NO_APERTURE_CHECK, name=name, itype="dump")
+
+
+class Drift(Instruction):
+    def __init__(self, name, length, exact=True, no_aperture_check=False):
+        self.length = length
+        flags = FLAG_EXACT if exact else 0
+        flags |= FLAG_NO_APERTURE_CHECK if no_aperture_check else 0
+        super().__init__(
+            OP_DUMP, flags=flags, args0_arr=[length], name=name, itype="drift"
+        )
+
+
+class Kick(Instruction):
+    def __init__(self, name, knl, ksl, linear=False, achromatic=False):
+        flags = FLAG_NO_APERTURE_CHECK
+        flags |= FLAG_LINEAR if linear else 0
+        flags |= FLAG_ACHROMATIC if achromatic else 0
+
+        n = len(knl)  # Avoid non-linear terms when LINEAR
+        self.max_order_knl = min(n, 2) if linear else n
+
+        n = len(ksl)  # Avoid non-linear terms when LINEAR
+        self.max_order_ksl = min(n, 2) if linear else n
+
+        if (self.max_order_knl <= 2) and (self.max_order_ksl <= 2):
+            flags |= FLAG_LINEAR
+
+        self.knl = knl[: self.max_order_knl]
+        self.ksl[: self.max_order_ksl]
+
+        super().__init__(
+            OP_KICK,
+            flags=flags,
+            args0_arr=self.knl,
+            args1_arr=self.ksl,
+            name=name,
+            itype="kick",
+        )
+
+
+class Teapot(Instruction):
+    def __init__(
+        self,
+        name,
+        length,
+        slices,
+        knl,
+        ksl,
+        angle=0,
+        exact=True,
+        linear=False,
+        achromatic=False,
+        no_aperture_check=False,
+    ):
+        flags = FLAG_NO_APERTURE_CHECK if no_aperture_check else 0
+        flags |= FLAG_EXACT if exact else 0
+        flags |= FLAG_LINEAR if linear else 0
+        flags |= FLAG_ACHROMATIC if achromatic else 0
+
+        self.inner = (length - 2.0 * self.outer) / (slices - 1.0) if slices > 1 else 0
+        self.outer = 0.5 * length if slices == 1 else 0.5 * length / (1 + slices)
+        self.weak_coeff = angle**2 / (slices * length)
+        self.slices = float(slices)
+
+        self.knl = [k * length / slices for k in knl]
+        args0_arr = [self.inner, self.outer, self.weak_coeff, self.slices] + self.knl
+        self.ksl = [k * length / slices for k in ksl]
+
+        flags |= Kick(name, self.knl, self.ksl).flags
+
+        super().__init__(
+            OP_TEAPOT,
+            flags=flags,
+            args0_arr=args0_arr,
+            args1_arr=self.ksl,
+            name=name,
+            itype="kick",
+        )
+
+
+class Quadrupole(Instruction):
+    def __init__(
+        self,
+        name,
+        length,
+        k,
+        achromatic=False,
+        no_aperture_check=False,
+    ):
+
+        flags = FLAG_NO_APERTURE_CHECK if no_aperture_check else 0
+        flags |= FLAG_ACHROMATIC if achromatic else 0
+
+        super().__init__(
+            OP_QUADRUPOLE, flags, [k, length], name=name, itype="quadrupole"
+        )
+
+
+# class Sbend(Instruction):
+# class Edge(Instruction):
+# class Wire(Instruction):
+# class Cavity(Instruction):
+
 
 class TranLinear(Instruction):
-    def __init__(self, mat, vec, name="unknown"):
+
+    def __init__(self, name, mat, vec):
         self.mat = np.array(mat)
         self.vec = np.array(vec)
         mat_m_eye = np.array(mat) - np.eye(4)
@@ -167,7 +290,16 @@ class TranLinear(Instruction):
                     args0_arr.update(list(sub_mat[1, 0:1]))
 
         super().__init__(
-            OP_TRAN_LINEAR, flags, args0_arr, name=name, itype="transverse_linear"
+            OP_TRAN_LINEAR, flags, args0_arr, name=name, itype="tran_linear"
+        )
+
+    def __repr__(self):
+        return (
+            f"(instruction name: {self.name}, "
+            f"type: {self.type}({self.op}), "
+            f"flags: {format_flags_tran_linear(self.flags)}, "
+            f"args0: {self.args0}, "
+            f"args1: {self.args1})"
         )
 
     # Compose two TranLinear instructions with new = prec <= succ syntax
@@ -183,21 +315,16 @@ class TranLinear(Instruction):
         return TranLinear(mat, vec)
 
 
-
-def trav_linear(mat, vec):
-    return TranLinear(mat, vec)
-
-
-def align(flags, dx, dy, use_linear=True):
-    if use_linear:
-        return TranLinear(np.eye(4), [dx, dy, 0.0, 0.0])
-    else:
-        return Instruction(OP_ALIGN, flags, [dx.dy])
-
-
-def drift(flags, length):
-    return Instruction(OP_DRIFT, flags, [length])
-
-
-def kick(flags, knl, ksl):
-    pass
+# class SetAperture:
+#
+#
+# def tran_linear(mat, vec):
+#    return TranLinear(mat, vec)
+#
+#
+# def drift(flags, length):
+#    return Instruction(OP_DRIFT, flags, [length])
+#
+#
+# def kick(flags, knl, ksl):
+#    pass
