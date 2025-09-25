@@ -1,6 +1,5 @@
 #include "base.cl"
 
-#define INST_DEFINES
 #define OP_ALIGN 0
 #define OP_DRIFT 1
 #define OP_KICK 2
@@ -78,7 +77,8 @@ inline void kick(particle_work_t* part_data, const flags_t flags,
     dpx = (flags & FLAG_ACHROMATIC) ? dpx : dpx * oodppo;
     dpy = 0.0;
 
-    // TODO: suggest pragma unroll
+    // Should suffice for dodecapole
+    #pragma unroll(5)
     for (intarg_t order = max_order - 1; order > 0; order--) {
       aux = (dpx * x0 - dpy * y0) / order;
       dpy = (dpx * y0 + dpy * x0) / order;
@@ -97,7 +97,8 @@ inline void kick(particle_work_t* part_data, const flags_t flags,
     dpy = (flags & FLAG_ACHROMATIC) ? dpy : dpy * oodppo;
     dpx = 0.0;
 
-    // TODO: suggest pragma unroll
+    // Should suffice for dodecapole
+    #pragma unroll(5)
     for (intarg_t order = max_order - 1; order > 0; order--) {
       aux = (dpx * y0 + dpy * x0) / order;
       dpx = (dpx * x0 - dpy * y0) / order;
@@ -120,7 +121,8 @@ inline void teapot(particle_work_t* part_data, const flags_t flags,
   const float_t inner = args0_arr[0];
   const float_t outer = args0_arr[1];
   const float_t weak_coeff = args0_arr[2];
-  const uint slices = *((__local const uint_t*)(args0_arr + 3));
+  const uint slices = (uint) args0_arr[3];
+
   __local const float_t* knl = args0_arr + 4;
   __local const float_t* ksl = args1_arr;
 
