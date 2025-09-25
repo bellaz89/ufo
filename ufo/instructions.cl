@@ -3,18 +3,15 @@
 #ifndef __UFO_INSTRUCTIONS__
 #define __UFO_INSTRUCTIONS__
 
-#define OP_ALIGN 0
 #define OP_DRIFT 1
 #define OP_KICK 2
 #define OP_TEAPOT 3
 #define OP_QUADRUPOLE 4
 #define OP_SBEND 5
 #define OP_EDGE 6
-#define OP_SEXTUPOLE 7
-#define OP_OCTUPOLE 8
 #define OP_WIRE 9
 #define OP_CAVITY 10
-#define OP_TRAV_LINEAR 11
+#define OP_TRAN_LINEAR 11
 #define OP_SET_APERTURE 12
 
 #define FLAG_LINEAR (0x1 << 0)
@@ -26,11 +23,11 @@
 #define FLAG_ACHROMATIC (0x1 << 6)
 #define FLAG_NO_APERTURE_CHECK (0x1 << 7)
 
-#define FLAG_TRAV_LINEAR_VEC (0x1 << 0)
-#define FLAG_TRAV_LINEAR_MAT_XX (0x1 << 1)
-#define FLAG_TRAV_LINEAR_MAT_PXX (0x1 << 2)
-#define FLAG_TRAV_LINEAR_MAT_XPX (0x1 << 3)
-#define FLAG_TRAV_LINEAR_MAT_PXPX (0x1 << 4)
+#define FLAG_TRAN_LINEAR_VEC (0x1 << 0)
+#define FLAG_TRAN_LINEAR_MAT_XX (0x1 << 1)
+#define FLAG_TRAN_LINEAR_MAT_PXX (0x1 << 2)
+#define FLAG_TRAN_LINEAR_MAT_XPX (0x1 << 3)
+#define FLAG_TRAN_LINEAR_MAT_PXPX (0x1 << 4)
 
 inline void _drift(particle_work_t* part_data, const flags_t flags,
                    const float_t length) {
@@ -64,25 +61,6 @@ inline void _drift(particle_work_t* part_data, const flags_t flags,
 #define __INST(x) x
 #define __LOCAL
 #endif
-
-inline void __INST(align)(particle_work_t* part_data, const flags_t flags,
-                          const intarg_t args0, const intarg_t args1,
-                          __LOCAL const float_t* args0_arr,
-                          __LOCAL const float_t* args1_arr) {
-  UNUSED(flags)
-  UNUSED(args0)
-  UNUSED(args1)
-  UNUSED(args1_arr)
-
-  UFO_ASSERT(args0 == 2, "args0 should be 2, not %d", args0)
-  UFO_ASSERT(args1 == 0, "args0 should be 0, not %d", args1)
-
-  float_t dx = args0_arr[0];
-  float_t dy = args0_arr[1];
-
-  part_data->particle.x -= dx;
-  part_data->particle.y -= dy;
-}
 
 inline void __INST(drift)(particle_work_t* part_data, const flags_t flags,
                           const intarg_t args0, const intarg_t args1,
@@ -405,7 +383,7 @@ inline void __INST(trav_linear)(particle_work_t* part_data, const flags_t flags,
   const float_t py0 = part_data->particle.py;
   uint slice = 0;
 
-  if (flags & FLAG_TRAV_LINEAR_VEC) {
+  if (flags & FLAG_TRAN_LINEAR_VEC) {
     part_data->particle.x += args0_arr[slice + 0];
     part_data->particle.y += args0_arr[slice + 1];
     part_data->particle.px += args0_arr[slice + 2];
@@ -413,7 +391,7 @@ inline void __INST(trav_linear)(particle_work_t* part_data, const flags_t flags,
     slice += 4;
   }
 
-  if (flags & FLAG_TRAV_LINEAR_MAT_XX) {
+  if (flags & FLAG_TRAN_LINEAR_MAT_XX) {
     part_data->particle.x +=
         x0 * args0_arr[slice + 0] + y0 * args0_arr[slice + 1];
     part_data->particle.y +=
@@ -421,7 +399,7 @@ inline void __INST(trav_linear)(particle_work_t* part_data, const flags_t flags,
     slice += 4;
   }
 
-  if (flags & FLAG_TRAV_LINEAR_MAT_PXX) {
+  if (flags & FLAG_TRAN_LINEAR_MAT_PXX) {
     part_data->particle.x +=
         px0 * args0_arr[slice + 0] + py0 * args0_arr[slice + 1];
     part_data->particle.y +=
@@ -429,7 +407,7 @@ inline void __INST(trav_linear)(particle_work_t* part_data, const flags_t flags,
     slice += 4;
   }
 
-  if (flags & FLAG_TRAV_LINEAR_MAT_XPX) {
+  if (flags & FLAG_TRAN_LINEAR_MAT_XPX) {
     part_data->particle.px +=
         x0 * args0_arr[slice + 0] + y0 * args0_arr[slice + 1];
     part_data->particle.py +=
@@ -437,7 +415,7 @@ inline void __INST(trav_linear)(particle_work_t* part_data, const flags_t flags,
     slice += 4;
   }
 
-  if (flags & FLAG_TRAV_LINEAR_MAT_PXPX) {
+  if (flags & FLAG_TRAN_LINEAR_MAT_PXPX) {
     part_data->particle.px +=
         px0 * args0_arr[slice + 0] + py0 * args0_arr[slice + 1];
     part_data->particle.py +=

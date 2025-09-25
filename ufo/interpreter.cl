@@ -5,24 +5,16 @@
 #define OP_NEXT_OFFSET -2
 #define OP_DUMP -3
 
+// clang-format off
 #if 0
 {{ endif }}
 // custom instructions opcodes
 {% for instruction in gen_instructions %}
-#define OP_            \
-  {                    \
-    {                  \
-      instruction.name \
-    }                  \
-  }                    \
-  {                    \
-    {                  \
-      instruction op   \
-    }                  \
-  }
+#define OP_{{ instruction.type }} {{ instruction.op }}
 {% endfor %}
 {{ if_0 }}
 #endif
+// clang-format on
 
 __constant const char* op_str(op_t op) {
   switch (op) {
@@ -31,9 +23,6 @@ __constant const char* op_str(op_t op) {
     }
     case OP_DUMP: {
       return "dump";
-    }
-    case OP_ALIGN: {
-      return "align";
     }
     case OP_DRIFT: {
       return "drift";
@@ -59,7 +48,7 @@ __constant const char* op_str(op_t op) {
     case OP_CAVITY: {
       return "cavity";
     }
-    case OP_TRAV_LINEAR: {
+    case OP_TRAN_LINEAR: {
       return "trav_linear";
     }
     case OP_SET_APERTURE: {
@@ -73,8 +62,8 @@ __constant const char* op_str(op_t op) {
     {{ endif }}
     // custom instructions names
     {% for instruction in gen_instructions %}
-    case OP_{{ instruction.name }} {
-      return "{{ instruction.name }}"
+    case OP_{{ instruction.type }} {
+      return "{{ instruction.type }}"
     }
     {% endfor %}
     {{ if_0 }}
@@ -107,8 +96,8 @@ inline void update_passed_if_alive(particle_work_t* part_data,
 // custom instructions declarations
 {% for instruction in gen_instructions %}
 
-inline void local_{{ instruction.name }}(particle_work_t* part_data, const flags_t flags, const intarg_t args0, const intarg_t args1, __local const float_t* args0_arr, __local const float_t* args1_arr);
-inline void {{ instruction.name }}(particle_work_t* part_data, const flags_t flags, const intarg_t args0, const intarg_t args1, const float_t* args0_arr, const float_t* args1_arr);
+inline void local_{{ instruction.type }}(particle_work_t* part_data, const flags_t flags, const intarg_t args0, const intarg_t args1, __local const float_t* args0_arr, __local const float_t* args1_arr);
+inline void {{ instruction.type }}(particle_work_t* part_data, const flags_t flags, const intarg_t args0, const intarg_t args1, const float_t* args0_arr, const float_t* args1_arr);
 {% endfor %}
 {{ if_0 }}
 #endif
@@ -140,11 +129,11 @@ inline void {{ instruction.name }}(particle_work_t* part_data, const flags_t fla
 // custom instructions definitions
 {% for instruction in gen_instructions %}
 
-inline void local_{{ instruction.name }}(particle_work_t* part_data, const flags_t flags, const intarg_t args0, const intarg_t args1, __local const float_t* args0_arr, __local const float_t* args1_arr) {
+inline void local_{{ instruction.type }}(particle_work_t* part_data, const flags_t flags, const intarg_t args0, const intarg_t args1, __local const float_t* args0_arr, __local const float_t* args1_arr) {
   {{ instruction_body(instruction) }}
 }
 
-inline void {{ instruction.name }}(particle_work_t* part_data, const flags_t flags, const intarg_t args0, const intarg_t args1, const float_t* args0_arr, const float_t* args1_arr); {
+inline void {{ instruction.type }}(particle_work_t* part_data, const flags_t flags, const intarg_t args0, const intarg_t args1, const float_t* args0_arr, const float_t* args1_arr); {
   {{ instruction_body(instruction) }}
 }
 
@@ -276,10 +265,6 @@ __kernel void run(__global const particle_t* input, __global particle_t* output,
                    output_offset)
         break;
       }
-      case OP_ALIGN: {
-        __INST(align)(&part_data, flags, args0, args1, args0_arr, args1_arr);
-        break;
-      }
       case OP_DRIFT: {
         __INST(drift)(&part_data, flags, args0, args1, args0_arr, args1_arr);
         break;
@@ -313,7 +298,7 @@ __kernel void run(__global const particle_t* input, __global particle_t* output,
         __INST(cavity)(&part_data, flags, args0, args1, args0_arr, args1_arr);
         break;
       }
-      case OP_TRAV_LINEAR: {
+      case OP_TRAN_LINEAR: {
         __INST(trav_linear)(&part_data, flags, args0, args1, args0_arr,
                             args1_arr);
         break;
@@ -344,8 +329,8 @@ __kernel void run(__global const particle_t* input, __global particle_t* output,
       #if 0
       {{ endif }}
       {% for instruction in gen_instructions %}
-      case OP_{{ instruction.name }}: {
-        local_{{ instruction.name }}(&part_data, flags, args0, args1, args0_arr, args1_arr);
+      case OP_{{ instruction.type }}: {
+        local_{{ instruction.type }}(&part_data, flags, args0, args1, args0_arr, args1_arr);
         break;
       }
       {% endfor %}
