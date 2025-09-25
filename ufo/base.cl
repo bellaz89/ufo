@@ -3,6 +3,30 @@
 
 #define UNUSED(x) (void)(x);
 
+#ifdef __UFO_NDEBUG__
+#define UFO_DEBUG(...) ((void)0);
+#define UFO_ASSERT(test, ...) ((void)0);
+#else
+#define UFO_DEBUG(...)           \
+  do {                           \
+    if (get_global_id(0) == 0) { \
+      printf(__VA_ARGS__);       \
+    }                            \
+  } while (false)
+
+#define UFO_ASSERT(test, ...)      \
+  do {                             \
+    if (!(test)) {                 \
+      if (get_global_id(0) == 0) { \
+        printf(__VA_ARGS__);       \
+      }                            \
+      while (true) {               \
+      };                           \
+    }                              \
+  } while (false);
+
+#endif
+
 #ifdef __UFO64__
 #ifndef __UFO_NDEBUG__
 
