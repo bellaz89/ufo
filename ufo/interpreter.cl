@@ -5,6 +5,25 @@
 #define OP_NEXT_OFFSET -2
 #define OP_DUMP -3
 
+#if 0
+{{ endif }}
+// custom instructions opcodes
+{% for instruction in gen_instructions %}
+#define OP_            \
+  {                    \
+    {                  \
+      instruction.name \
+    }                  \
+  }                    \
+  {                    \
+    {                  \
+      instruction op   \
+    }                  \
+  }
+{% endfor %}
+{{ if_0 }}
+#endif
+
 __constant const char* op_str(op_t op) {
   switch (op) {
     case OP_NEXT_OFFSET: {
@@ -49,6 +68,18 @@ __constant const char* op_str(op_t op) {
     case OP_REWIND: {
       return "rewind";
     }
+    // clang-format off
+    #if 0
+    {{ endif }}
+    // custom instructions names
+    {% for instruction in gen_instructions %}
+    case OP_{{ instruction.name }} {
+      return "{{ instruction.name }}"
+    }
+    {% endfor %}
+    {{ if_0 }}
+    #endif
+    // clang-format on
     default: {
       return "unknown";
     }
@@ -57,12 +88,70 @@ __constant const char* op_str(op_t op) {
 
 // Kills the particle if ouside aperture
 // Updates the passed elements if the particle is alive
-inline void update_passed_if_alive(particle_work_t* part_data) {
-  float_t center_distance = part_data->particle.x * part_data->particle.x;
-  center_distance += part_data->particle.y * part_data->particle.y;
-  part_data->particle.alive &= center_distance < part_data->aperture_sq;
+inline void update_passed_if_alive(particle_work_t* part_data,
+                                   const bool check) {
+  if (check) {
+    const float_t x0 = part_data->particle.x;
+    const float_t y0 = part_data->particle.y;
+    const float_t center_distance = x0 * x0 + y0 * y0;
+    part_data->particle.alive &= (center_distance < part_data->aperture_sq);
+  }
+
   part_data->particle.passed_elements += part_data->particle.alive ? 1 : 0;
 }
+
+// clang-format off
+#if 0
+{{ endif }}
+
+// custom instructions declarations
+{% for instruction in gen_instructions %}
+
+inline void local_{{ instruction.name }}(particle_work_t* part_data, const flags_t flags, const intarg_t args0, const intarg_t args1, __local const float_t* args0_arr, __local const float_t* args1_arr);
+inline void {{ instruction.name }}(particle_work_t* part_data, const flags_t flags, const intarg_t args0, const intarg_t args1, const float_t* args0_arr, const float_t* args1_arr);
+{% endfor %}
+{{ if_0 }}
+#endif
+
+#if 0
+{{ endif }}
+
+{% macro instruction_body(instruction) %}
+  UNUSED(flags)
+  UNUSED(args0)
+  UNUSED(args1)
+  UNUSED(args0_arr)
+  UNUSED(args1_arr)
+
+  {% for inner in instruction.inner_instructions %}
+  {
+    // Instance of {{ repr(inner) }}
+    const flags_t  _flags = {{ inner.flags }};
+    const intarg_t _args0 = {{ inner.args0 }};
+    const intarg_t _args1 = {{ inner.args1 }};
+    const float_t _args0_arr[] = { {{ ", ".join(inner.args0_arr) }} };
+    const float_t _args1_arr[] = { {{ ", ".join(inner.args1_arr) }} };
+    {{ inner.type }}(part_data, _flags, _args0, _args1, _args0_arr, _args1_arr);
+    update_passed_if_alive(part_data, !(inner.flags & FLAG_NO_APERTURE_CHECK));
+  }
+  {% endfor %}
+{% endmacro %}
+
+// custom instructions definitions
+{% for instruction in gen_instructions %}
+
+inline void local_{{ instruction.name }}(particle_work_t* part_data, const flags_t flags, const intarg_t args0, const intarg_t args1, __local const float_t* args0_arr, __local const float_t* args1_arr) {
+  {{ instruction_body(instruction) }}
+}
+
+inline void {{ instruction.name }}(particle_work_t* part_data, const flags_t flags, const intarg_t args0, const intarg_t args1, const float_t* args0_arr, const float_t* args1_arr); {
+  {{ instruction_body(instruction) }}
+}
+
+{% endfor %}
+{{ if_0 }}
+#endif
+// clang-format on
 
 // Loads next instruction offset in the instruction buffer
 inline void load_next_offset(__global const inst_t* inst, uint* inst_offset,
@@ -251,11 +340,23 @@ __kernel void run(__global const particle_t* input, __global particle_t* output,
                           inst_buf_size);
         break;
       }
+      // clang-format off
+      #if 0
+      {{ endif }}
+      {% for instruction in gen_instructions %}
+      case OP_{{ instruction.name }}: {
+        local_{{ instruction.name }}(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        break;
+      }
+      {% endfor %}
+      {{ if_0 }}
+      #endif
+      // clang-format on
       default: {
         UFO_ASSERT(0, "unknown op %d found at offset %d, cache offset %d", op,
                    inst_offset - 1, inst_current)
       }
     }
-    update_passed_if_alive(&part_data);
+    update_passed_if_alive(&part_data, !(flags & FLAG_NO_APERTURE_CHECK));
   }
 }

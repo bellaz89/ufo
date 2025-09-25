@@ -24,6 +24,7 @@
 #define FLAG_RADIATION (0x1 << 4)
 #define FLAG_DOUBLE_PRECISION (0x1 << 5)
 #define FLAG_ACHROMATIC (0x1 << 6)
+#define FLAG_NO_APERTURE_CHECK (0x1 << 7)
 
 #define FLAG_TRAV_LINEAR_VEC (0x1 << 0)
 #define FLAG_TRAV_LINEAR_MAT_XX (0x1 << 1)
