@@ -12,7 +12,7 @@
     if (get_global_id(0) == 0) { \
       printf(__VA_ARGS__);       \
     }                            \
-  } while (false)
+  } while (false);
 
 #define UFO_ASSERT(test, ...)      \
   do {                             \

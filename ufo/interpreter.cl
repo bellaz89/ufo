@@ -4,6 +4,56 @@
 #define OP_NEXT_OFFSET -2
 #define OP_DUMP -3
 
+__constant const char* op_str(op_t op) {
+  switch (op) {
+    case OP_NEXT_OFFSET: {
+      return "next_offset";
+    }
+    case OP_DUMP: {
+      return "dump";
+    }
+    case OP_ALIGN: {
+      return "align";
+    }
+    case OP_DRIFT: {
+      return "drift";
+    }
+    case OP_KICK: {
+      return "kick";
+    }
+    case OP_TEAPOT: {
+      return "teapot";
+    }
+    case OP_QUADRUPOLE: {
+      return "quadrupole";
+    }
+    case OP_SBEND: {
+      return "sbend";
+    }
+    case OP_EDGE: {
+      return "edge";
+    }
+    case OP_WIRE: {
+      return "wire";
+    }
+    case OP_CAVITY: {
+      return "cavity";
+    }
+    case OP_TRAV_LINEAR: {
+      return "trav_linear";
+    }
+    case OP_SET_APERTURE: {
+      return "set_aperture";
+    }
+    case OP_REWIND: {
+      return "rewind";
+    }
+    default: {
+      return "unknown";
+    }
+  }
+}
+
 // Kills the particle if ouside aperture
 // Updates the passed elements if the particle is alive
 inline void update_passed_if_alive(particle_work_t* part_data) {
@@ -36,35 +86,40 @@ inline void load_next_offset(__global const inst_t* inst, uint* inst_offset,
 inline void load_first_offset(__global const inst_t* inst, uint* inst_offset,
                               __local inst_t* inst_buf, uint* inst_current,
                               const uint inst_buf_size) {
-
-  // If there is only one offset, do not reload it
+  // If there is only one offset and is already loaded, do not reload it
   if (*inst_offset == inst_buf_size && *inst_current != 0) {
     *inst_current = 0;
   } else {
     *inst_offset = 0;
     load_next_offset(inst, inst_offset, inst_buf, inst_current, inst_buf_size);
+    UFO_ASSERT(*inst_offset == inst_buf_size, "ERROR: expected inst_offset to be equal to %d, instead it is %d\n", inst_buf_size, *inst_offset)
   }
 }
 
 // Dumps particle data in the global memory
 inline void dump_particles(particle_work_t* part_data,
-                           __global particle_t* output, uint* dump_offset,
+                           __global particle_t* output, uint* output_offset,
                            const uint particles) {
   const uint idx = get_global_id(0);
   if (idx < particles) {
-    output[idx + *dump_offset] = part_data->particle;
+    output[idx + *output_offset] = part_data->particle;
   }
-  *dump_offset += particles;
+  *output_offset += particles;
 }
 
 __kernel void run(__global const particle_t* input, __global particle_t* output,
                   __global inst_t* inst, __local inst_t* inst_buf,
                   const uint particles, const uint inst_buf_size,
-                  const uint turns) {
+                  const uint turns, const uint output_size,
+                  const uint instructions) {
+  UNUSED(output_size)
+  UNUSED(instructions)
+
   particle_work_t part_data;
   uint inst_offset;
   uint inst_current;
-  uint dump_offset = 0;
+  uint output_offset = 0;
+  uint instructions_done = 0;
 
   const uint idx = get_global_id(0);
 
@@ -98,6 +153,24 @@ __kernel void run(__global const particle_t* input, __global particle_t* output,
         (__local float_t*)(inst_buf + inst_current);
     inst_current += args1;
 
+    UFO_DEBUG(
+        "INFO: executing instruction %s (id %d), flags %x, args0 %d, args1 "
+        "%d\n",
+        op_str(op), instructions_done, flags, args0, args1)
+    instructions_done++;
+    UFO_ASSERT(instructions_done <= instructions,
+               "ERROR: executing over %d instructions\n", instructions);
+
+    for (uint i = 0; i < args0; i++) {
+      UNUSED(i)
+      UFO_ASSERT(!isnan(args0_arr[i]), "ERROR: value %d of args0 is a NAN\n", i)
+    }
+
+    for (uint i = 0; i < args0; i++) {
+      UNUSED(i)
+      UFO_ASSERT(!isnan(args0_arr[i]), "ERROR: value %d of args1 is a NAN\n", i)
+    }
+
     switch (op) {
       case OP_NEXT_OFFSET: {
         load_next_offset(inst, &inst_offset, inst_buf, &inst_current,
@@ -105,7 +178,10 @@ __kernel void run(__global const particle_t* input, __global particle_t* output,
         break;
       }
       case OP_DUMP: {
-        dump_particles(&part_data, output, &dump_offset, particles);
+        dump_particles(&part_data, output, &output_offset, particles);
+        UFO_ASSERT(output_offset <= output_size,
+                   "ERROR: output offset should be <= of %d but it is %d\n",
+                   output_size, output_offset)
         break;
       }
       case OP_ALIGN: {
@@ -152,14 +228,27 @@ __kernel void run(__global const particle_t* input, __global particle_t* output,
         set_aperture(&part_data, flags, args0, args1, args0_arr, args1_arr);
         break;
       }
-      default: {  // Case for OP_REWIND.
+      case OP_REWIND: {
         turn++;
         if (turn == turns) {
+          UFO_ASSERT(instructions_done == instructions,
+                     "ERROR: exiting the interpreter with %d executed "
+                     "instructions out of %d\n",
+                     instructions_done, instructions)
+          UFO_ASSERT(output_offset == output_size,
+                     "ERROR: on exit output offset should be equal to %d but "
+                     "it is %d\n",
+                     output_size, output_offset)
           return;
         }
         load_first_offset(inst, &inst_offset, inst_buf, &inst_current,
                           inst_buf_size);
         break;
+      }
+      default: {
+        UFO_ASSERT(0,
+                   "ERROR: unknown op %d found at offset %d, cache offset %d\n",
+                   op, inst_offset - 1, inst_current)
       }
     }
     update_passed_if_alive(&part_data);
