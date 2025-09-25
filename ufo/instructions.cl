@@ -57,8 +57,8 @@ inline void align(particle_work_t* part_data, const flags_t flags,
   UNUSED(args1)
   UNUSED(args1_arr)
 
-  UFO_ASSERT(args0 == 2, "ERROR: in align, args0 should be 2, not %d\n", args0)
-  UFO_ASSERT(args1 == 0, "ERROR: in align, args0 should be 0, not %d\n", args1)
+  UFO_ASSERT(args0 == 2, "args0 should be 2, not %d", args0)
+  UFO_ASSERT(args1 == 0, "args0 should be 0, not %d", args1)
 
   float_t dx = args0_arr[0];
   float_t dy = args0_arr[1];
@@ -76,8 +76,8 @@ inline void drift(particle_work_t* part_data, const flags_t flags,
   UNUSED(args1)
   UNUSED(args1_arr)
 
-  UFO_ASSERT(args0 == 1, "ERROR: in drift, args0 should be 1, not %d\n", args0)
-  UFO_ASSERT(args1 == 0, "ERROR: in drift, args1 should be 0, not %d\n", args1)
+  UFO_ASSERT(args0 == 1, "args0 should be 1, not %d", args0)
+  UFO_ASSERT(args1 == 0, "args1 should be 0, not %d", args1)
 
   float_t length = args0_arr[0];
   _drift(part_data, flags, length);
@@ -87,8 +87,8 @@ inline void kick(particle_work_t* part_data, const flags_t flags,
                  const intarg_t args0, const intarg_t args1,
                  __local const float_t* args0_arr,
                  __local const float_t* args1_arr) {
-  UFO_ASSERT((args0 + args1) > 0,
-             "ERROR: in kick, args0 should be > 0, not %d\n", (args0 + args1))
+  UFO_ASSERT((args0 + args1) > 0, "args0 should be > 0, not %d",
+             (args0 + args1))
 
   const intarg_t knl_size = args0;
   const intarg_t ksl_size = args1;
@@ -146,10 +146,8 @@ inline void teapot(particle_work_t* part_data, const flags_t flags,
                    const intarg_t args0, const intarg_t args1,
                    __local const float_t* args0_arr,
                    __local const float_t* args1_arr) {
-  UFO_ASSERT(args0 >= 4, "ERROR: in teapot, args0 should be >=4, not %d\n",
-             args0)
-  UFO_ASSERT((args0 + args1) > 4,
-             "ERROR: in teapot, (args0 + args1) should be >4, not %d\n",
+  UFO_ASSERT(args0 >= 4, "args0 should be >=4, not %d", args0)
+  UFO_ASSERT((args0 + args1) > 4, "(args0 + args1) should be >4, not %d",
              (args0 + args1))
 
   const intarg_t knl_size = args0 - 4;
@@ -183,10 +181,8 @@ inline void quadrupole(particle_work_t* part_data, const flags_t flags,
   UNUSED(args1)
   UNUSED(args1_arr)
 
-  UFO_ASSERT(args0 == 2, "ERROR: in quadrupole, args0 should be 2, not %d\n",
-             args0)
-  UFO_ASSERT(args1 == 0, "ERROR: in quadrupole, args1 should be 0, not %d\n",
-             args1)
+  UFO_ASSERT(args0 == 2, "args0 should be 2, not %d", args0)
+  UFO_ASSERT(args1 == 0, "args1 should be 0, not %d", args1)
 
   const float_t oodppo = part_data->oodppo;
   const float_t k =
@@ -227,8 +223,8 @@ inline void sbend(particle_work_t* part_data, const flags_t flags,
   UNUSED(args1)
   UNUSED(args1_arr)
 
-  UFO_ASSERT(args0 == 3, "ERROR: in sbend, args0 should be 3, not %d\n", args0)
-  UFO_ASSERT(args1 == 0, "ERROR: in sbend, args1 should be 0, not %d\n", args1)
+  UFO_ASSERT(args0 == 3, "args0 should be 3, not %d", args0)
+  UFO_ASSERT(args1 == 0, "args1 should be 0, not %d", args1)
 
   const float_t oodppo = part_data->oodppo;
   const float_t length = args0_arr[0];
@@ -306,8 +302,8 @@ inline void edge(particle_work_t* part_data, const flags_t flags,
   UNUSED(args1)
   UNUSED(args1_arr)
 
-  UFO_ASSERT(args0 == 4, "ERROR: in edge, args0 should be 4, not %d\n", args0)
-  UFO_ASSERT(args1 == 0, "ERROR: in edge, args1 should be 0, not %d\n", args1)
+  UFO_ASSERT(args0 == 4, "args0 should be 4, not %d", args0)
+  UFO_ASSERT(args1 == 0, "args1 should be 0, not %d", args1)
 
   const float_t oodppo = part_data->oodppo;
 
@@ -337,8 +333,8 @@ inline void wire(particle_work_t* part_data, const flags_t flags,
   UNUSED(args1)
   UNUSED(args1_arr)
 
-  UFO_ASSERT(args0 == 3, "ERROR: in wire, args0 should be 3, not %d\n", args0)
-  UFO_ASSERT(args1 == 0, "ERROR: in wire, args1 should be 0, not %d\n", args1)
+  UFO_ASSERT(args0 == 3, "args0 should be 3, not %d", args0)
+  UFO_ASSERT(args1 == 0, "args1 should be 0, not %d", args1)
 
   const float_t k = args0_arr[0];
   const float_t wire_x = args0_arr[1];
@@ -363,8 +359,8 @@ inline void cavity(particle_work_t* part_data, const flags_t flags,
   UNUSED(args1)
   UNUSED(args1_arr)
 
-  UFO_ASSERT(args0 == 3, "ERROR: in cavity, args0 should be 3, not %d\n", args0)
-  UFO_ASSERT(args1 == 0, "ERROR: in cavity, args1 should be 0, not %d\n", args1)
+  UFO_ASSERT(args0 == 3, "args0 should be 3, not %d", args0)
+  UFO_ASSERT(args1 == 0, "args1 should be 0, not %d", args1)
 
   const float_t z0 = part_data->particle.z;
   const float_t field = args0_arr[0];
@@ -384,8 +380,7 @@ inline void trav_linear(particle_work_t* part_data, const flags_t flags,
   UNUSED(args1)
   UNUSED(args1_arr)
 
-  UFO_ASSERT(args1 == 0, "ERROR: in trav_linear, args1 should be 0, not %d\n",
-             args1)
+  UFO_ASSERT(args1 == 0, "args1 should be 0, not %d", args1)
 
   const float_t x0 = part_data->particle.x;
   const float_t y0 = part_data->particle.y;
@@ -433,9 +428,7 @@ inline void trav_linear(particle_work_t* part_data, const flags_t flags,
     slice += 4;
   }
 
-  UFO_ASSERT(args0 == slice,
-             "ERROR: in trav_linear, args0 should be %d, not %d\n", slice,
-             args0)
+  UFO_ASSERT(args0 == slice, "args0 should be %d, not %d", slice, args0)
 }
 
 // NOTE: This uses a different flag notation
@@ -448,8 +441,8 @@ inline void set_aperture(particle_work_t* part_data, const flags_t flags,
   UNUSED(args1)
   UNUSED(args1_arr)
 
-  UFO_ASSERT(args0 == 1, "ERROR: in edge, args0 should be 4, not %d\n", args0)
-  UFO_ASSERT(args1 == 0, "ERROR: in edge, args1 should be 0, not %d\n", args1)
+  UFO_ASSERT(args0 == 1, "args0 should be 4, not %d", args0)
+  UFO_ASSERT(args1 == 0, "args1 should be 0, not %d", args1)
 
   part_data->aperture_sq = args0_arr[0];
 }

@@ -1,28 +1,36 @@
 #ifndef __UFO_BASE__
 #define __UFO_BASE__
 
+#ifndef __func__
+
+#define __func__ "<unknown>"
+
+#endif
+
 #define UNUSED(x) (void)(x);
 
 #ifdef __UFO_NDEBUG__
 #define UFO_DEBUG(...) ((void)0);
 #define UFO_ASSERT(test, ...) ((void)0);
 #else
-#define UFO_DEBUG(...)           \
-  do {                           \
-    if (get_global_id(0) == 0) { \
-      printf(__VA_ARGS__);       \
-    }                            \
+#define UFO_DEBUG(fmt_str, ...)                                              \
+  do {                                                                       \
+    if (get_global_id(0) == 0) {                                             \
+      printf("INFO(%s:%s-l%d): " fmt_str "\n", __func__, __FILE__, __LINE__, \
+             __VA_ARGS__);                                                   \
+    }                                                                        \
   } while (false);
 
-#define UFO_ASSERT(test, ...)      \
-  do {                             \
-    if (!(test)) {                 \
-      if (get_global_id(0) == 0) { \
-        printf(__VA_ARGS__);       \
-      }                            \
-      while (true) {               \
-      };                           \
-    }                              \
+#define UFO_ASSERT(test, fmt_str, ...)                                \
+  do {                                                                \
+    if (!(test)) {                                                    \
+      if (get_global_id(0) == 0) {                                    \
+        printf("ERROR(%s:%s-l%d): " fmt_str "\n", __func__, __FILE__, \
+               __LINE__, __VA_ARGS__);                                \
+      }                                                               \
+      while (true) {                                                  \
+      };                                                              \
+    }                                                                 \
   } while (false);
 
 #endif

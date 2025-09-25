@@ -92,7 +92,9 @@ inline void load_first_offset(__global const inst_t* inst, uint* inst_offset,
   } else {
     *inst_offset = 0;
     load_next_offset(inst, inst_offset, inst_buf, inst_current, inst_buf_size);
-    UFO_ASSERT(*inst_offset == inst_buf_size, "ERROR: expected inst_offset to be equal to %d, instead it is %d\n", inst_buf_size, *inst_offset)
+    UFO_ASSERT(*inst_offset == inst_buf_size,
+               "expected inst_offset to be equal to %d, instead it is %d",
+               inst_buf_size, *inst_offset)
   }
 }
 
@@ -154,21 +156,21 @@ __kernel void run(__global const particle_t* input, __global particle_t* output,
     inst_current += args1;
 
     UFO_DEBUG(
-        "INFO: executing instruction %s (id %d), flags %x, args0 %d, args1 "
-        "%d\n",
+        "executing instruction %s (id %d), flags %x, args0 %d, args1 "
+        "%d",
         op_str(op), instructions_done, flags, args0, args1)
     instructions_done++;
     UFO_ASSERT(instructions_done <= instructions,
-               "ERROR: executing over %d instructions\n", instructions);
+               "executing over %d instructions", instructions);
 
     for (uint i = 0; i < args0; i++) {
       UNUSED(i)
-      UFO_ASSERT(!isnan(args0_arr[i]), "ERROR: value %d of args0 is a NAN\n", i)
+      UFO_ASSERT(!isnan(args0_arr[i]), "value %d of args0 is a NAN", i)
     }
 
     for (uint i = 0; i < args0; i++) {
       UNUSED(i)
-      UFO_ASSERT(!isnan(args0_arr[i]), "ERROR: value %d of args1 is a NAN\n", i)
+      UFO_ASSERT(!isnan(args0_arr[i]), "value %d of args1 is a NAN", i)
     }
 
     switch (op) {
@@ -180,8 +182,8 @@ __kernel void run(__global const particle_t* input, __global particle_t* output,
       case OP_DUMP: {
         dump_particles(&part_data, output, &output_offset, particles);
         UFO_ASSERT(output_offset <= output_size,
-                   "ERROR: output offset should be <= of %d but it is %d\n",
-                   output_size, output_offset)
+                   "output offset should be <= of %d but it is %d", output_size,
+                   output_offset)
         break;
       }
       case OP_ALIGN: {
@@ -232,12 +234,12 @@ __kernel void run(__global const particle_t* input, __global particle_t* output,
         turn++;
         if (turn == turns) {
           UFO_ASSERT(instructions_done == instructions,
-                     "ERROR: exiting the interpreter with %d executed "
-                     "instructions out of %d\n",
+                     "exiting the interpreter with %d executed "
+                     "instructions out of %d",
                      instructions_done, instructions)
           UFO_ASSERT(output_offset == output_size,
-                     "ERROR: on exit output offset should be equal to %d but "
-                     "it is %d\n",
+                     "on exit output offset should be equal to %d but "
+                     "it is %d",
                      output_size, output_offset)
           return;
         }
@@ -246,9 +248,8 @@ __kernel void run(__global const particle_t* input, __global particle_t* output,
         break;
       }
       default: {
-        UFO_ASSERT(0,
-                   "ERROR: unknown op %d found at offset %d, cache offset %d\n",
-                   op, inst_offset - 1, inst_current)
+        UFO_ASSERT(0, "unknown op %d found at offset %d, cache offset %d", op,
+                   inst_offset - 1, inst_current)
       }
     }
     update_passed_if_alive(&part_data);
