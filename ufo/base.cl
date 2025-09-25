@@ -3,7 +3,11 @@
 
 #define UNUSED(x) (void)(x);
 
-#ifdef data_64
+#ifdef __UFO64__
+#ifndef __UFO_NDEBUG__
+
+#pragma message("#INFO: base.cl: using 64bit bytecode")
+#endif
 typedef short op_t;
 typedef ushort flags_t;
 typedef ushort intarg_t;
@@ -11,12 +15,51 @@ typedef double float_t;
 typedef ulong uint_t;
 __constant const float_t FLOAT_MAX = DBL_MAX;
 #else
+#ifndef __UFO_NDEBUG__
+
+#pragma message("#INFO: base.cl: using 32bit bytecode")
+
+#endif
 typedef char op_t;
 typedef uchar flags_t;
 typedef uchar intarg_t;
 typedef float float_t;
 typedef uint uint_t;
 __constant const float_t FLOAT_MAX = FLT_MAX;
+#endif
+
+#ifdef __UFO_NATIVE__
+#ifndef __UFO_NDEBUG__
+#pragma message("#INFO: base.cl: using native instructions")
+#endif
+#define _sqrt(x) (native_sqrt(x))
+#define _sin(x) (native_sin(x))
+#define _cos(x) (native_cos(x))
+#define _tan(x) (native_tan(x))
+#define _rsqrt(x) (native_rsqrt(x))
+#define _recip(x) (native_recip(x))
+#define _divide(x, y) (native_divide(x, y))
+#define _hypot(x, y) (native_sqrt(x * x + y * y))
+#define _atan2(x, y) (atan2(x, y))
+#define _cosh(x) (0.5 * (native_exp(x) + native_exp(-x)))
+#define _sinh(x) (0.5 * (native_exp(x) - native_exp(-x)))
+
+#else
+#ifndef __UFO_NDEBUG__
+
+#pragma message("#INFO: base.cl: using standard instructions")
+#endif
+#define _sqrt(x) (sqrt(x))
+#define _sin(x) (sin(x))
+#define _cos(x) (cos(x))
+#define _tan(x) (tan(x))
+#define _rsqrt(x) (rsqrt(x))
+#define _recip(x) (1.0 / x)
+#define _divide(x, y) (x / y)
+#define _hypot(x, y) (hypot(x, y))
+#define _atan2(x, y) (atan2(x, y))
+#define _cosh(x) (cosh(x))
+#define _sinh(x) (sinh(x))
 #endif
 
 // Instruction type

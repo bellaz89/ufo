@@ -51,7 +51,7 @@ inline void _drift(particle_work_t* part_data, const flags_t flags,
   float_t eff_length = length;
 
   if (flags & FLAG_EXACT) {
-    eff_length /= sqrt(opdp * opdp - px0 * px0 - py0 * py0);
+    eff_length *= _rsqrt(opdp * opdp - px0 * px0 - py0 * py0);
   }
 
   part_data->particle.x += px0 * eff_length;
@@ -95,8 +95,8 @@ inline void kick(particle_work_t* part_data, const flags_t flags,
 // Should suffice for dodecapole
 #pragma unroll(5)
     for (intarg_t order = max_order - 1; order > 0; order--) {
-      aux = (dpx * x0 - dpy * y0) / order;
-      dpy = (dpx * y0 + dpy * x0) / order;
+      aux = _divide((dpx * x0 - dpy * y0), order);
+      dpy = _divide((dpx * y0 + dpy * x0), order);
       dpx = knl[order - 1];
       dpx = (flags & FLAG_ACHROMATIC) ? dpx : dpx * oodppo;
       dpx += aux;
@@ -115,8 +115,8 @@ inline void kick(particle_work_t* part_data, const flags_t flags,
 // Should suffice for dodecapole
 #pragma unroll(5)
     for (intarg_t order = max_order - 1; order > 0; order--) {
-      aux = (dpx * y0 + dpy * x0) / order;
-      dpx = (dpx * x0 - dpy * y0) / order;
+      aux = _divide((dpx * y0 + dpy * x0), order);
+      dpx = _divide((dpx * x0 - dpy * y0), order);
       dpy = ksl[order - 1];
       dpy = (flags & FLAG_ACHROMATIC) ? dpx : dpx * oodppo;
       dpy += aux;
@@ -172,12 +172,12 @@ inline void quadrupole(particle_work_t* part_data, const flags_t flags,
   const float_t px0 = part_data->particle.px;
   const float_t py0 = part_data->particle.py;
 
-  const float_t k2 = sqrt(fabs(k));
+  const float_t k2 = _sqrt(fabs(k));
   const float_t k2l = length * k2;
-  const float_t C = cos(k2l);
-  const float_t CH = cosh(k2l);
-  const float_t S = sin(k2l);
-  const float_t SH = sinh(k2l);
+  const float_t C = _cos(k2l);
+  const float_t CH = _cosh(k2l);
+  const float_t S = _sin(k2l);
+  const float_t SH = _sinh(k2l);
 
   if (k > 0.0) {
     part_data->particle.x = C * x0 + S * px0 / k2;
@@ -216,52 +216,55 @@ inline void sbend(particle_work_t* part_data, const flags_t flags,
       (flags & FLAG_ACHROMATIC) ? curvature_coeff : curvature_coeff * oodppo;
 
   float_t k = (flags & FLAG_ACHROMATIC) ? k1 : k1 * oodppo;
-  float_t k2 = sqrt(fabs(k));
-  float_t k2l = length * k2;
-  float_t C = cos(k2l);
-  float_t CH = cosh(k2l);
-  float_t S = sin(k2l);
-  float_t SH = sinh(k2l);
 
-  if (k > 0.) {
-    part_data->particle.y = CH * y0 + SH * py0 / k2;
-    part_data->particle.py = SH * y0 * k2 + CH * py0;
-  }
-
-  if (k < 0.) {
-    part_data->particle.y = C * y0 + S * py0 / k2;
-    part_data->particle.py = -S * y0 * k2 + C * py0;
-  }
-
-  if (k == 0.) {
+  if (k == 0.0) {
     part_data->particle.y += length * py0;
+  } else {
+    const float_t k2 = _sqrt(fabs(k));
+    const float_t k2l = length * k2;
+
+    if (k > 0.0) {
+      const float_t CH = _cosh(k2l);
+      const float_t SH = _sinh(k2l);
+      part_data->particle.y = CH * y0 + _divide(SH * py0, k2);
+      part_data->particle.py = SH * y0 * k2 + CH * py0;
+    }
+
+    if (k < 0.0) {
+      const float_t C = _cos(k2l);
+      const float_t S = _sin(k2l);
+      part_data->particle.y = C * y0 + _divide(S * py0, k2);
+      part_data->particle.py = -S * y0 * k2 + C * py0;
+    }
   }
 
   k += (flags & FLAG_ACHROMATIC) ? curvature * curvature
                                  : curvature * curvature_coeff;
-  k2 = sqrt(fabs(k));
-  k2l = length * k2;
-  C = cos(k2l);
-  CH = cosh(k2l);
-  S = sin(k2l);
-  SH = sinh(k2l);
-
-  if (k > 0.0) {
-    part_data->particle.x = C * x0 + S * px0 / k2;
-    part_data->particle.x += dp0 * curvature * (1. - C) / fabs(k);
-    part_data->particle.px = -S * x0 * k2 + C * px0;
-    part_data->particle.px += dp0 * curvature * S / k2;
-  }
-
-  if (k < 0.0) {
-    part_data->particle.x = CH * x0 + SH * px0 / k2;
-    part_data->particle.x += dp0 * curvature * (CH - 1.) / fabs(k);
-    part_data->particle.px = SH * x0 * k2 + CH * px0;
-    part_data->particle.px += dp0 * curvature * SH / k2;
-  }
 
   if (k == 0.0) {
     part_data->particle.x += length * px0;
+  } else {
+    const float_t k2 = _sqrt(fabs(k));
+    const float_t k2_recip = _recip(k2);
+    const float_t k2l = length * k2;
+    const float_t C = _cos(k2l);
+    const float_t CH = _cosh(k2l);
+    const float_t S = _sin(k2l);
+    const float_t SH = _sinh(k2l);
+
+    if (k > 0.0) {
+      part_data->particle.x = C * x0 + S * px0 * k2_recip;
+      part_data->particle.x += _divide(dp0 * curvature * (1. - C), fabs(k));
+      part_data->particle.px = -S * x0 * k2 + C * px0;
+      part_data->particle.px += dp0 * curvature * S * k2_recip;
+    }
+
+    if (k < 0.0) {
+      part_data->particle.x = CH * x0 + SH * px0 * k2_recip;
+      part_data->particle.x += _divide(dp0 * curvature * (CH - 1.), fabs(k));
+      part_data->particle.px = SH * x0 * k2 + CH * px0;
+      part_data->particle.px += dp0 * curvature * SH * k2_recip;
+    }
   }
 }
 
