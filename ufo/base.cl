@@ -9,7 +9,7 @@
 
 #define UNUSED(x) (void)(x);
 
-#ifdef __UFO_NDEBUG__
+#ifdef UFO_NDEBUG
 #define UFO_DEBUG(...) ((void)0);
 #define UFO_ASSERT(test, ...) ((void)0);
 #else
@@ -35,8 +35,11 @@
 
 #endif
 
-#ifdef __UFO64__
-#ifndef __UFO_NDEBUG__
+#define INNER_CAT(a, b) a##b
+#define CAT(a, b) INNER_CAT(a, b)
+
+#ifdef UFO64
+#ifndef UFO_NDEBUG
 
 #pragma message("#INFO: base.cl: using 64bit bytecode")
 #endif
@@ -47,7 +50,7 @@ typedef double float_t;
 typedef ulong uint_t;
 __constant const float_t FLOAT_MAX = DBL_MAX;
 #else
-#ifndef __UFO_NDEBUG__
+#ifndef UFO_NDEBUG
 
 #pragma message("#INFO: base.cl: using 32bit bytecode")
 
@@ -60,8 +63,8 @@ typedef uint uint_t;
 __constant const float_t FLOAT_MAX = FLT_MAX;
 #endif
 
-#ifdef __UFO_NATIVE__
-#ifndef __UFO_NDEBUG__
+#ifdef UFO_NATIVE
+#ifndef UFO_NDEBUG
 #pragma message("#INFO: base.cl: using native instructions")
 #endif
 #define _sqrt(x) (native_sqrt(x))
@@ -77,7 +80,7 @@ __constant const float_t FLOAT_MAX = FLT_MAX;
 #define _sinh(x) (0.5 * (native_exp(x) - native_exp(-x)))
 
 #else
-#ifndef __UFO_NDEBUG__
+#ifndef UFO_NDEBUG
 
 #pragma message("#INFO: base.cl: using standard instructions")
 #endif

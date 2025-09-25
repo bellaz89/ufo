@@ -1,4 +1,5 @@
-
+#include "instructions.cl"
+#define __UFO_GENERATE_LOCAL_INSTRUCTIONS__
 #include "instructions.cl"
 #define OP_REWIND -1
 #define OP_NEXT_OFFSET -2
@@ -187,47 +188,50 @@ __kernel void run(__global const particle_t* input, __global particle_t* output,
         break;
       }
       case OP_ALIGN: {
-        align(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        __INST(align)(&part_data, flags, args0, args1, args0_arr, args1_arr);
         break;
       }
       case OP_DRIFT: {
-        drift(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        __INST(drift)(&part_data, flags, args0, args1, args0_arr, args1_arr);
         break;
       }
       case OP_KICK: {
-        kick(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        __INST(kick)(&part_data, flags, args0, args1, args0_arr, args1_arr);
         break;
       }
       case OP_TEAPOT: {
-        teapot(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        __INST(teapot)(&part_data, flags, args0, args1, args0_arr, args1_arr);
         break;
       }
       case OP_QUADRUPOLE: {
-        quadrupole(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        __INST(quadrupole)(&part_data, flags, args0, args1, args0_arr,
+                           args1_arr);
         break;
       }
       case OP_SBEND: {
-        sbend(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        __INST(sbend)(&part_data, flags, args0, args1, args0_arr, args1_arr);
         break;
       }
       case OP_EDGE: {
-        edge(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        __INST(edge)(&part_data, flags, args0, args1, args0_arr, args1_arr);
         break;
       }
       case OP_WIRE: {
-        wire(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        __INST(wire)(&part_data, flags, args0, args1, args0_arr, args1_arr);
         break;
       }
       case OP_CAVITY: {
-        cavity(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        __INST(cavity)(&part_data, flags, args0, args1, args0_arr, args1_arr);
         break;
       }
       case OP_TRAV_LINEAR: {
-        trav_linear(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        __INST(trav_linear)(&part_data, flags, args0, args1, args0_arr,
+                            args1_arr);
         break;
       }
       case OP_SET_APERTURE: {
-        set_aperture(&part_data, flags, args0, args1, args0_arr, args1_arr);
+        __INST(set_aperture)(&part_data, flags, args0, args1, args0_arr,
+                             args1_arr);
         break;
       }
       case OP_REWIND: {

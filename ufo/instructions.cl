@@ -48,10 +48,26 @@ inline void _drift(particle_work_t* part_data, const flags_t flags,
 
 #endif
 
-inline void align(particle_work_t* part_data, const flags_t flags,
-                  const intarg_t args0, const intarg_t args1,
-                  __local const float_t* args0_arr,
-                  __local const float_t* args1_arr) {
+#ifdef __INST
+#undef __INST
+#endif
+
+#ifdef __LOCAL
+#undef __LOCAL
+#endif
+
+#ifdef __UFO_GENERATE_LOCAL_INSTRUCTIONS__
+#define __INST(x) CAT(local_, x)
+#define __LOCAL __local
+#else
+#define __INST(x) x
+#define __LOCAL
+#endif
+
+inline void __INST(align)(particle_work_t* part_data, const flags_t flags,
+                          const intarg_t args0, const intarg_t args1,
+                          __LOCAL const float_t* args0_arr,
+                          __LOCAL const float_t* args1_arr) {
   UNUSED(flags)
   UNUSED(args0)
   UNUSED(args1)
@@ -67,10 +83,10 @@ inline void align(particle_work_t* part_data, const flags_t flags,
   part_data->particle.y -= dy;
 }
 
-inline void drift(particle_work_t* part_data, const flags_t flags,
-                  const intarg_t args0, const intarg_t args1,
-                  __local const float_t* args0_arr,
-                  __local const float_t* args1_arr) {
+inline void __INST(drift)(particle_work_t* part_data, const flags_t flags,
+                          const intarg_t args0, const intarg_t args1,
+                          __LOCAL const float_t* args0_arr,
+                          __LOCAL const float_t* args1_arr) {
   UNUSED(flags)
   UNUSED(args0)
   UNUSED(args1)
@@ -83,17 +99,17 @@ inline void drift(particle_work_t* part_data, const flags_t flags,
   _drift(part_data, flags, length);
 }
 
-inline void kick(particle_work_t* part_data, const flags_t flags,
-                 const intarg_t args0, const intarg_t args1,
-                 __local const float_t* args0_arr,
-                 __local const float_t* args1_arr) {
+inline void __INST(kick)(particle_work_t* part_data, const flags_t flags,
+                         const intarg_t args0, const intarg_t args1,
+                         __LOCAL const float_t* args0_arr,
+                         __LOCAL const float_t* args1_arr) {
   UFO_ASSERT((args0 + args1) > 0, "args0 should be > 0, not %d",
              (args0 + args1))
 
   const intarg_t knl_size = args0;
   const intarg_t ksl_size = args1;
-  __local const float_t* knl = args0_arr;
-  __local const float_t* ksl = args1_arr;
+  __LOCAL const float_t* knl = args0_arr;
+  __LOCAL const float_t* ksl = args1_arr;
   intarg_t max_order;
   float_t dpx, dpy, aux;
 
@@ -142,10 +158,10 @@ inline void kick(particle_work_t* part_data, const flags_t flags,
   }
 }
 
-inline void teapot(particle_work_t* part_data, const flags_t flags,
-                   const intarg_t args0, const intarg_t args1,
-                   __local const float_t* args0_arr,
-                   __local const float_t* args1_arr) {
+inline void __INST(teapot)(particle_work_t* part_data, const flags_t flags,
+                           const intarg_t args0, const intarg_t args1,
+                           __LOCAL const float_t* args0_arr,
+                           __LOCAL const float_t* args1_arr) {
   UFO_ASSERT(args0 >= 4, "args0 should be >=4, not %d", args0)
   UFO_ASSERT((args0 + args1) > 4, "(args0 + args1) should be >4, not %d",
              (args0 + args1))
@@ -157,25 +173,25 @@ inline void teapot(particle_work_t* part_data, const flags_t flags,
   const float_t weak_coeff = args0_arr[2];
   const uint slices = (uint)args0_arr[3];
 
-  __local const float_t* knl = args0_arr + 4;
-  __local const float_t* ksl = args1_arr;
+  __LOCAL const float_t* knl = args0_arr + 4;
+  __LOCAL const float_t* ksl = args1_arr;
 
   // TODO:: suggest pragma unroll
   for (uint i = 0; i < slices - 1; i++) {
-    kick(part_data, flags, knl_size, ksl_size, knl, ksl);
+    __INST(kick)(part_data, flags, knl_size, ksl_size, knl, ksl);
     part_data->particle.px -= part_data->particle.x * weak_coeff;
     _drift(part_data, flags, inner);
   }
 
-  kick(part_data, flags, knl_size, ksl_size, knl, ksl);
+  __INST(kick)(part_data, flags, knl_size, ksl_size, knl, ksl);
   part_data->particle.px -= part_data->particle.x * weak_coeff;
   _drift(part_data, flags, outer);
 }
 
-inline void quadrupole(particle_work_t* part_data, const flags_t flags,
-                       const intarg_t args0, const intarg_t args1,
-                       __local const float_t* args0_arr,
-                       __local const float_t* args1_arr) {
+inline void __INST(quadrupole)(particle_work_t* part_data, const flags_t flags,
+                               const intarg_t args0, const intarg_t args1,
+                               __LOCAL const float_t* args0_arr,
+                               __LOCAL const float_t* args1_arr) {
   UNUSED(flags)
   UNUSED(args0)
   UNUSED(args1)
@@ -214,10 +230,10 @@ inline void quadrupole(particle_work_t* part_data, const flags_t flags,
   }
 }
 
-inline void sbend(particle_work_t* part_data, const flags_t flags,
-                  const intarg_t args0, const intarg_t args1,
-                  __local const float_t* args0_arr,
-                  __local const float_t* args1_arr) {
+inline void __INST(sbend)(particle_work_t* part_data, const flags_t flags,
+                          const intarg_t args0, const intarg_t args1,
+                          __LOCAL const float_t* args0_arr,
+                          __LOCAL const float_t* args1_arr) {
   UNUSED(flags)
   UNUSED(args0)
   UNUSED(args1)
@@ -293,10 +309,10 @@ inline void sbend(particle_work_t* part_data, const flags_t flags,
   }
 }
 
-inline void edge(particle_work_t* part_data, const flags_t flags,
-                 const intarg_t args0, const intarg_t args1,
-                 __local const float_t* args0_arr,
-                 __local const float_t* args1_arr) {
+inline void __INST(edge)(particle_work_t* part_data, const flags_t flags,
+                         const intarg_t args0, const intarg_t args1,
+                         __LOCAL const float_t* args0_arr,
+                         __LOCAL const float_t* args1_arr) {
   UNUSED(flags)
   UNUSED(args0)
   UNUSED(args1)
@@ -324,10 +340,10 @@ inline void edge(particle_work_t* part_data, const flags_t flags,
   part_data->particle.py -= y0 * curvature * tan(psi);
 }
 
-inline void wire(particle_work_t* part_data, const flags_t flags,
-                 const intarg_t args0, const intarg_t args1,
-                 __local const float_t* args0_arr,
-                 __local const float_t* args1_arr) {
+inline void __INST(wire)(particle_work_t* part_data, const flags_t flags,
+                         const intarg_t args0, const intarg_t args1,
+                         __LOCAL const float_t* args0_arr,
+                         __LOCAL const float_t* args1_arr) {
   UNUSED(flags)
   UNUSED(args0)
   UNUSED(args1)
@@ -350,10 +366,10 @@ inline void wire(particle_work_t* part_data, const flags_t flags,
   part_data->particle.py += B * sin(alpha);
 }
 
-inline void cavity(particle_work_t* part_data, const flags_t flags,
-                   const intarg_t args0, const intarg_t args1,
-                   __local const float_t* args0_arr,
-                   __local const float_t* args1_arr) {
+inline void __INST(cavity)(particle_work_t* part_data, const flags_t flags,
+                           const intarg_t args0, const intarg_t args1,
+                           __LOCAL const float_t* args0_arr,
+                           __LOCAL const float_t* args1_arr) {
   UNUSED(flags)
   UNUSED(args0)
   UNUSED(args1)
@@ -372,10 +388,10 @@ inline void cavity(particle_work_t* part_data, const flags_t flags,
 
 // NOTE: This uses a different flag notation
 // Generic 4x4 linear xypxpy phase space transform plus shift
-inline void trav_linear(particle_work_t* part_data, const flags_t flags,
-                        const intarg_t args0, const intarg_t args1,
-                        __local const float_t* args0_arr,
-                        __local const float_t* args1_arr) {
+inline void __INST(trav_linear)(particle_work_t* part_data, const flags_t flags,
+                                const intarg_t args0, const intarg_t args1,
+                                __LOCAL const float_t* args0_arr,
+                                __LOCAL const float_t* args1_arr) {
   UNUSED(args0)
   UNUSED(args1)
   UNUSED(args1_arr)
@@ -432,10 +448,11 @@ inline void trav_linear(particle_work_t* part_data, const flags_t flags,
 }
 
 // NOTE: This uses a different flag notation
-inline void set_aperture(particle_work_t* part_data, const flags_t flags,
-                         const intarg_t args0, const intarg_t args1,
-                         __local const float_t* args0_arr,
-                         __local const float_t* args1_arr) {
+inline void __INST(set_aperture)(particle_work_t* part_data,
+                                 const flags_t flags, const intarg_t args0,
+                                 const intarg_t args1,
+                                 __LOCAL const float_t* args0_arr,
+                                 __LOCAL const float_t* args1_arr) {
   UNUSED(flags)
   UNUSED(args0)
   UNUSED(args1)
