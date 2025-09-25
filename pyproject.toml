@@ -12,8 +12,13 @@ authors = [
 ]
 license = { file = "COPYING" }
 dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "hdf5storage",
     "pyopencl",
     "docopt",
+    "Jinja2",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
