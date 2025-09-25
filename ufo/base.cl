@@ -1,3 +1,7 @@
+#ifndef __UFO_BASE__
+#define __UFO_BASE__
+
+#define UNUSED(x) (void)(x);
 
 #ifdef data_64
 typedef short op_t;
@@ -45,3 +49,4 @@ inline void update_oodppo(particle_work_t* part_data) {
   part_data->opdp = part_data->particle.dp + 1.0;
   part_data->oodppo = 1.0 / (part_data->opdp);
 }
+#endif

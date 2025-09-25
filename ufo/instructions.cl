@@ -1,5 +1,8 @@
 #include "base.cl"
 
+#ifndef __UFO_INSTRUCTIONS__
+#define __UFO_INSTRUCTIONS__
+
 #define OP_ALIGN 0
 #define OP_DRIFT 1
 #define OP_KICK 2
@@ -22,10 +25,17 @@
 #define FLAG_DOUBLE_PRECISION (0x1 << 5)
 #define FLAG_ACHROMATIC (0x1 << 6)
 
+#endif
+
 inline void align(particle_work_t* part_data, const flags_t flags,
                   const intarg_t args0, const intarg_t args1,
                   __local const float_t* args0_arr,
                   __local const float_t* args1_arr) {
+  UNUSED(flags)
+  UNUSED(args0)
+  UNUSED(args1)
+  UNUSED(args1_arr)
+
   float_t dx = args0_arr[0];
   float_t dy = args0_arr[1];
 
@@ -52,6 +62,11 @@ inline void drift(particle_work_t* part_data, const flags_t flags,
                   const intarg_t args0, const intarg_t args1,
                   __local const float_t* args0_arr,
                   __local const float_t* args1_arr) {
+  UNUSED(flags)
+  UNUSED(args0)
+  UNUSED(args1)
+  UNUSED(args1_arr)
+
   float_t length = args0_arr[0];
   _drift(part_data, flags, length);
 }
@@ -77,8 +92,8 @@ inline void kick(particle_work_t* part_data, const flags_t flags,
     dpx = (flags & FLAG_ACHROMATIC) ? dpx : dpx * oodppo;
     dpy = 0.0;
 
-    // Should suffice for dodecapole
-    #pragma unroll(5)
+// Should suffice for dodecapole
+#pragma unroll(5)
     for (intarg_t order = max_order - 1; order > 0; order--) {
       aux = (dpx * x0 - dpy * y0) / order;
       dpy = (dpx * y0 + dpy * x0) / order;
@@ -97,8 +112,8 @@ inline void kick(particle_work_t* part_data, const flags_t flags,
     dpy = (flags & FLAG_ACHROMATIC) ? dpy : dpy * oodppo;
     dpx = 0.0;
 
-    // Should suffice for dodecapole
-    #pragma unroll(5)
+// Should suffice for dodecapole
+#pragma unroll(5)
     for (intarg_t order = max_order - 1; order > 0; order--) {
       aux = (dpx * y0 + dpy * x0) / order;
       dpx = (dpx * x0 - dpy * y0) / order;
@@ -121,7 +136,7 @@ inline void teapot(particle_work_t* part_data, const flags_t flags,
   const float_t inner = args0_arr[0];
   const float_t outer = args0_arr[1];
   const float_t weak_coeff = args0_arr[2];
-  const uint slices = (uint) args0_arr[3];
+  const uint slices = (uint)args0_arr[3];
 
   __local const float_t* knl = args0_arr + 4;
   __local const float_t* ksl = args1_arr;
@@ -142,6 +157,11 @@ inline void quadrupole(particle_work_t* part_data, const flags_t flags,
                        const intarg_t args0, const intarg_t args1,
                        __local const float_t* args0_arr,
                        __local const float_t* args1_arr) {
+  UNUSED(flags)
+  UNUSED(args0)
+  UNUSED(args1)
+  UNUSED(args1_arr)
+
   const float_t oodppo = part_data->oodppo;
   const float_t k =
       (flags & FLAG_ACHROMATIC) ? args0_arr[0] : args0_arr[0] * oodppo;
@@ -176,8 +196,12 @@ inline void sbend(particle_work_t* part_data, const flags_t flags,
                   const intarg_t args0, const intarg_t args1,
                   __local const float_t* args0_arr,
                   __local const float_t* args1_arr) {
-  const float_t oodppo = part_data->oodppo;
+  UNUSED(flags)
+  UNUSED(args0)
+  UNUSED(args1)
+  UNUSED(args1_arr)
 
+  const float_t oodppo = part_data->oodppo;
   const float_t length = args0_arr[0];
   const float_t curvature_coeff = args0_arr[1];
   const float_t k1 = args0_arr[2];
@@ -245,6 +269,11 @@ inline void edge(particle_work_t* part_data, const flags_t flags,
                  const intarg_t args0, const intarg_t args1,
                  __local const float_t* args0_arr,
                  __local const float_t* args1_arr) {
+  UNUSED(flags)
+  UNUSED(args0)
+  UNUSED(args1)
+  UNUSED(args1_arr)
+
   const float_t oodppo = part_data->oodppo;
 
   const float_t x0 = part_data->particle.x;
@@ -268,6 +297,11 @@ inline void wire(particle_work_t* part_data, const flags_t flags,
                  const intarg_t args0, const intarg_t args1,
                  __local const float_t* args0_arr,
                  __local const float_t* args1_arr) {
+  UNUSED(flags)
+  UNUSED(args0)
+  UNUSED(args1)
+  UNUSED(args1_arr)
+
   const float_t k = args0_arr[0];
   const float_t wire_x = args0_arr[1];
   const float_t wire_y = args0_arr[2];
@@ -286,6 +320,11 @@ inline void cavity(particle_work_t* part_data, const flags_t flags,
                    const intarg_t args0, const intarg_t args1,
                    __local const float_t* args0_arr,
                    __local const float_t* args1_arr) {
+  UNUSED(flags)
+  UNUSED(args0)
+  UNUSED(args1)
+  UNUSED(args1_arr)
+
   const float_t z0 = part_data->particle.z;
   const float_t field = args0_arr[0];
   const float_t omega = args0_arr[1];
@@ -300,6 +339,10 @@ inline void trav_linear(particle_work_t* part_data, const flags_t flags,
                         const intarg_t args0, const intarg_t args1,
                         __local const float_t* args0_arr,
                         __local const float_t* args1_arr) {
+  UNUSED(args0)
+  UNUSED(args1)
+  UNUSED(args1_arr)
+
   const float_t x0 = part_data->particle.x;
   const float_t y0 = part_data->particle.y;
   const float_t px0 = part_data->particle.px;
@@ -352,5 +395,10 @@ inline void set_aperture(particle_work_t* part_data, const flags_t flags,
                          const intarg_t args0, const intarg_t args1,
                          __local const float_t* args0_arr,
                          __local const float_t* args1_arr) {
+  UNUSED(flags)
+  UNUSED(args0)
+  UNUSED(args1)
+  UNUSED(args1_arr)
+
   part_data->aperture_sq = args0_arr[0];
 }
