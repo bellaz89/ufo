@@ -32,14 +32,25 @@
 ...***UFO*** is a fast accelerator optics toolkit designed with GPU in mind, nevertheless it gets along well with CPUs too.
 UFO is not meant to be a general purpose tool, instead it aims to performance at expenses of flexibility and ease of use...
 
+## Rust Crate
+
+UFO is now a Rust crate. The implementation includes:
+
+- a typed lattice and element model,
+- a `pest`-based parser for the existing MAD fixture dialect,
+- OpenCL-compatible interpreter bytecode encoding,
+- bundled OpenCL interpreter kernels under `src/kernels/`,
+- an `opencl3`-based device/build wrapper,
+- CLI commands for loading, compiling, tracking, optics, chromaticity,
+  radiation integrals, closed orbit, RDT, and stable aperture workflows.
+
 ## Requirements
 
 The following packages are required to run UFO:
 
-- python 3.5 or later
-- numpy
-- pyopencl at least one properly configured OpenCL back-end
-- ipython3 is required for interactive use only
+- Rust 1.96 or later
+- Cargo
+- An OpenCL implementation for runtime execution and OpenCL build tests
 
 
 ## Install
@@ -48,7 +59,8 @@ The latest development version of UFO can be retrieved from github and installed
 
 ```
 git clone https://github.com/mcarla/ufo
-pip3 install -e ufo/
+cd ufo
+cargo test
 ```
 
 
@@ -57,10 +69,19 @@ pip3 install -e ufo/
 At least one properly configured OpenCL back-end is required to run any simulation,
 a list of the available OpenCL back-ends can be obtained with:
 ```
-import ufo
-
-ufo.list_devices()
+cargo run -- list-devices
 ```
+
+Useful CLI commands:
+
+```
+cargo run -- load optics/fodo.mad
+cargo run -- compile optics/fodo.mad --flag linear --flag achromatic
+cargo run -- build-interpreter
+```
+
+For compatibility with the old Python API naming, `list_devices` is accepted as
+an alias for `list-devices`.
 
 The output should resemble:
 
@@ -70,22 +91,15 @@ The output should resemble:
 ```
 
 In this example two back-ends are available: 0 is an Nvidia Quadro GPU, while 1 is an Intel i5 CPU.
-UFO can be called from a script or used interactively for example with ipython3. In the latter case some online documentation is accessible via the '?' operator, for example:
+Tracking and analysis commands accept MAD lattice files directly. For example:
 
 ```
-In [5]: ufo.Quadrupole?
-Init signature: ufo.Quadrupole(label, slices=None, length=0.0, k1=0.0, dx=0.0, dy=0.0, dkn=[], dks=[])
-Docstring:     
-A thick normal quadrupole element.
-
-label    : str   -> Name of the element
-slices   : float -> Number of slices used for 'tea pot' expansion (if KICK flag is set)
-length   : float -> Length of the element
-k1       : float -> Strength of the quadrupolar component
-dx, dy   : float -> Horizontal and vertical alignment offset
-dkn, dks : list  -> List of normal and skew multipolar field errors
+cargo run -- track optics/fodo.mad --turns 10 --where -1
+cargo run -- optics optics/fodo.mad
+cargo run -- chromaticity optics/fodo.mad
 ```
 
 ## Documentation
 
-Refer to the [HOWTO](https://github.com/mcarla/ufo/blob/main/HOWTO.md) for further documentation.
+Run `cargo run -- --help` or `cargo run -- <command> --help` for command
+documentation.

@@ -1,0 +1,19 @@
+WHITESPACE = _{ " " | "\t" | NEWLINE | comment }
+comment = _{ "!" ~ (!NEWLINE ~ ANY)* }
+
+file = { SOI ~ statement* ~ EOI }
+statement = _{ definition | unknown }
+definition = { ident ~ ":" ~ ident ~ (line_body | param_list)? ~ ";" }
+line_body = { "=" ~ "(" ~ ident_list? ~ ")" }
+ident_list = { ident ~ ("," ~ ident)* }
+param_list = { "," ~ param ~ ("," ~ param)* }
+param = { ident ~ "=" ~ value }
+value = { vector | string | number }
+vector = { "{" ~ number_list? ~ "}" }
+number_list = { number ~ ("," ~ number)* ~ ","? }
+string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+number = @{ sign? ~ (ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT*)? | "." ~ ASCII_DIGIT+) ~ exponent? }
+exponent = @{ (^"e" | ^"d") ~ sign? ~ ASCII_DIGIT+ }
+sign = @{ "+" | "-" }
+ident = @{ (ASCII_ALPHA | "_" | "-") ~ (ASCII_ALPHANUMERIC | "_")* }
+unknown = { (!";" ~ ANY)* ~ ";" }
