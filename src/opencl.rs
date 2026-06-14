@@ -1,11 +1,15 @@
 use opencl3::{
     command_queue::{CL_BLOCKING, CommandQueue},
     context::Context,
-    device::{CL_DEVICE_TYPE_ALL, Device},
+    device::{
+        CL_DEVICE_TYPE_ACCELERATOR, CL_DEVICE_TYPE_ALL, CL_DEVICE_TYPE_CPU, CL_DEVICE_TYPE_GPU,
+        Device,
+    },
     kernel::Kernel,
     memory::{Buffer, CL_MEM_READ_ONLY, CL_MEM_READ_WRITE, CL_MEM_WRITE_ONLY, ClMem},
     platform::get_platforms,
     program::Program,
+    types::{cl_device_id, cl_device_type},
 };
 
 use std::ptr;
@@ -24,11 +28,13 @@ pub struct DeviceInfo {
 
 pub fn list_devices() -> Result<Vec<DeviceInfo>> {
     let mut devices = Vec::new();
+    let mut seen = Vec::new();
     for platform in get_platforms().map_err(|e| UfoError::OpenCl(e.to_string()))? {
-        for id in platform
-            .get_devices(CL_DEVICE_TYPE_ALL)
-            .map_err(|e| UfoError::OpenCl(e.to_string()))?
-        {
+        for id in platform_device_ids(&platform) {
+            if seen.contains(&id) {
+                continue;
+            }
+            seen.push(id);
             let device = Device::new(id);
             devices.push(DeviceInfo {
                 index: devices.len(),
@@ -39,18 +45,26 @@ pub fn list_devices() -> Result<Vec<DeviceInfo>> {
     Ok(devices)
 }
 
+pub fn first_device_id() -> Result<cl_device_id> {
+    for platform in get_platforms().map_err(|e| UfoError::OpenCl(e.to_string()))? {
+        for device_type in [
+            CL_DEVICE_TYPE_GPU,
+            CL_DEVICE_TYPE_CPU,
+            CL_DEVICE_TYPE_ACCELERATOR,
+        ] {
+            if let Some(id) = platform_device_ids_for_type(&platform, device_type)
+                .into_iter()
+                .next()
+            {
+                return Ok(id);
+            }
+        }
+    }
+    Err(UfoError::OpenCl("no OpenCL devices found".to_string()))
+}
+
 pub fn build_interpreter_for_first_device(options: &str) -> Result<()> {
-    let platform = get_platforms()
-        .map_err(|e| UfoError::OpenCl(e.to_string()))?
-        .into_iter()
-        .next()
-        .ok_or_else(|| UfoError::OpenCl("no OpenCL platforms found".to_string()))?;
-    let device_id = platform
-        .get_devices(CL_DEVICE_TYPE_ALL)
-        .map_err(|e| UfoError::OpenCl(e.to_string()))?
-        .into_iter()
-        .next()
-        .ok_or_else(|| UfoError::OpenCl("no OpenCL devices found".to_string()))?;
+    let device_id = first_device_id()?;
     let device = Device::new(device_id);
     let context = Context::from_device(&device).map_err(|e| UfoError::OpenCl(e.to_string()))?;
     let build_options = format!("-I src/kernels {options}");
@@ -105,17 +119,7 @@ fn run_interpreter<T: Copy + Default>(
     input: &[T],
     options: &TrackRunOptions,
 ) -> Result<Vec<T>> {
-    let platform = get_platforms()
-        .map_err(|e| UfoError::OpenCl(e.to_string()))?
-        .into_iter()
-        .next()
-        .ok_or_else(|| UfoError::OpenCl("no OpenCL platforms found".to_string()))?;
-    let device_id = platform
-        .get_devices(CL_DEVICE_TYPE_ALL)
-        .map_err(|e| UfoError::OpenCl(e.to_string()))?
-        .into_iter()
-        .next()
-        .ok_or_else(|| UfoError::OpenCl("no OpenCL devices found".to_string()))?;
+    let device_id = first_device_id()?;
     let device = Device::new(device_id);
     let context = Context::from_device(&device).map_err(|e| UfoError::OpenCl(e.to_string()))?;
     let queue = unsafe { CommandQueue::create(&context, device_id, 0) }
@@ -230,6 +234,30 @@ fn run_interpreter<T: Copy + Default>(
     }
 
     Ok(output)
+}
+
+fn platform_device_ids(platform: &opencl3::platform::Platform) -> Vec<cl_device_id> {
+    let mut ids = Vec::new();
+    for device_type in [
+        CL_DEVICE_TYPE_GPU,
+        CL_DEVICE_TYPE_CPU,
+        CL_DEVICE_TYPE_ACCELERATOR,
+        CL_DEVICE_TYPE_ALL,
+    ] {
+        for id in platform_device_ids_for_type(platform, device_type) {
+            if !ids.contains(&id) {
+                ids.push(id);
+            }
+        }
+    }
+    ids
+}
+
+fn platform_device_ids_for_type(
+    platform: &opencl3::platform::Platform,
+    device_type: cl_device_type,
+) -> Vec<cl_device_id> {
+    platform.get_devices(device_type).unwrap_or_default()
 }
 
 fn align_up(value: usize, align: usize) -> usize {

@@ -508,21 +508,14 @@ fn opencl3_particle_copy_kernel_matches_host_layout_when_enabled() {
     use opencl3::{
         command_queue::{CL_BLOCKING, CommandQueue},
         context::Context,
-        device::{CL_DEVICE_TYPE_ALL, Device},
+        device::Device,
         kernel::Kernel,
         memory::{Buffer, CL_MEM_READ_ONLY, CL_MEM_WRITE_ONLY, ClMem},
-        platform::get_platforms,
         program::Program,
     };
     use std::ptr;
 
-    let platform = get_platforms().unwrap().into_iter().next().unwrap();
-    let device_id = platform
-        .get_devices(CL_DEVICE_TYPE_ALL)
-        .unwrap()
-        .into_iter()
-        .next()
-        .unwrap();
+    let device_id = ufo::opencl::first_device_id().unwrap();
     let device = Device::new(device_id);
     let context = Context::from_device(&device).unwrap();
     let queue = unsafe { CommandQueue::create(&context, device_id, 0) }.unwrap();
@@ -602,21 +595,14 @@ fn opencl3_interpreter_signature_copy_kernel_when_enabled() {
     use opencl3::{
         command_queue::{CL_BLOCKING, CommandQueue},
         context::Context,
-        device::{CL_DEVICE_TYPE_ALL, Device},
+        device::Device,
         kernel::Kernel,
         memory::{Buffer, CL_MEM_READ_ONLY, CL_MEM_READ_WRITE, CL_MEM_WRITE_ONLY, ClMem},
-        platform::get_platforms,
         program::Program,
     };
     use std::ptr;
 
-    let platform = get_platforms().unwrap().into_iter().next().unwrap();
-    let device_id = platform
-        .get_devices(CL_DEVICE_TYPE_ALL)
-        .unwrap()
-        .into_iter()
-        .next()
-        .unwrap();
+    let device_id = ufo::opencl::first_device_id().unwrap();
     let device = Device::new(device_id);
     let context = Context::from_device(&device).unwrap();
     let queue = unsafe { CommandQueue::create(&context, device_id, 0) }.unwrap();
