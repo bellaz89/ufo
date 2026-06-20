@@ -79,6 +79,7 @@ Useful CLI commands:
 ```
 cargo run -- load optics/fodo.mad
 cargo run -- compile optics/fodo.mad --flag linear --flag achromatic
+cargo run -- compile optics/fodo.mad --instructions
 cargo run -- track optics/fodo.mad --turns 10 --where -1
 cargo run -- optics optics/fodo.mad
 cargo run -- chromaticity optics/fodo.mad
@@ -148,6 +149,9 @@ Common lattice and compiler flags:
 - `--double` emits 64-bit bytecode and uses double-precision tracking.
 - `--flag <name>` is repeatable. Supported pass flags are `linear`, `fived`,
   `exact`, `kick`, `radiation`, `double-precision`, and `achromatic`.
+- `compile --instructions` prints each decoded instruction with opcode, name,
+  kind, flags, aux, and arguments.
+- `compile --hex` prints encoded bytecode words.
 - `--collapse-linear` is available on `compile` and `track`; it collapses
   consecutive affine linear transforms into `OP_TRAN_LINEAR`.
 

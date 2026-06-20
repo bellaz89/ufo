@@ -39,6 +39,9 @@ enum Command {
         /// Print encoded words as hexadecimal.
         #[arg(long)]
         hex: bool,
+        /// Print decoded instructions with opcode, name, flags, aux, and arguments.
+        #[arg(long)]
+        instructions: bool,
         /// Collapse consecutive affine linear transforms into OP_TRAN_LINEAR.
         #[arg(long)]
         collapse_linear: bool,
@@ -361,8 +364,17 @@ fn run(cli: Cli) -> Result<()> {
             double,
             flags,
             hex,
+            instructions,
             collapse_linear,
-        } => compile(path, line, double, flags, hex, collapse_linear),
+        } => compile(
+            path,
+            line,
+            double,
+            flags,
+            hex,
+            instructions,
+            collapse_linear,
+        ),
         Command::Dump {
             input,
             output,
@@ -838,6 +850,7 @@ fn compile(
     double: bool,
     flags: Vec<FlagArg>,
     hex: bool,
+    instructions: bool,
     collapse_linear: bool,
 ) -> Result<()> {
     let lattice = ufo::load_mad_file(&path)?;
@@ -863,6 +876,21 @@ fn compile(
     println!("words: {}", bytecode.word_count());
     println!("bytes: {}", bytecode.emit_bytes()?.len());
 
+    if instructions {
+        println!("index,opcode,name,kind,flags,aux,args");
+        for (idx, instruction) in bytecode.instructions().iter().enumerate() {
+            println!(
+                "{idx},{},{},{},{},{},{}",
+                instruction.op,
+                instruction.name,
+                instruction.kind,
+                format_pass_flags(instruction.flags),
+                instruction.aux,
+                format_args(&instruction.args)
+            );
+        }
+    }
+
     if hex {
         if double {
             for word in bytecode.emit_u64_words()? {
@@ -875,6 +903,41 @@ fn compile(
         }
     }
     Ok(())
+}
+
+fn format_pass_flags(flags: PassFlags) -> String {
+    let mut names = Vec::new();
+    for (flag, name) in [
+        (PassFlags::LINEAR, "linear"),
+        (PassFlags::FIVED, "fived"),
+        (PassFlags::EXACT, "exact"),
+        (PassFlags::KICK, "kick"),
+        (PassFlags::RADIATION, "radiation"),
+        (PassFlags::DOUBLE_PRECISION, "double-precision"),
+        (PassFlags::ACHROMATIC, "achromatic"),
+        (PassFlags::NO_APERTURE_CHECK, "no-aperture-check"),
+    ] {
+        if flags.contains(flag) {
+            names.push(name);
+        }
+    }
+    if names.is_empty() {
+        "-".to_string()
+    } else {
+        names.join("|")
+    }
+}
+
+fn format_args(args: &[f64]) -> String {
+    if args.is_empty() {
+        return "[]".to_string();
+    }
+    let values = args
+        .iter()
+        .map(|value| format!("{value:.12}"))
+        .collect::<Vec<_>>()
+        .join(";");
+    format!("[{values}]")
 }
 
 #[cfg(feature = "cubecl")]

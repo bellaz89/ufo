@@ -67,6 +67,29 @@ fn cli_compile_reports_bytecode_metadata() {
 }
 
 #[test]
+fn cli_compile_prints_decoded_instructions() {
+    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    cmd.args(["compile", "optics/fodo.mad", "--instructions"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "index,opcode,name,kind,flags,aux,args",
+        ))
+        .stdout(predicate::str::contains(",drift,"))
+        .stdout(predicate::str::contains(",rewind,"));
+}
+
+#[test]
+fn cli_compile_help_exposes_instruction_listing() {
+    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    cmd.args(["compile", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("--instructions"))
+        .stdout(predicate::str::contains("--hex"));
+}
+
+#[test]
 #[cfg(feature = "cubecl")]
 fn cli_accepts_list_devices_spelling() {
     let mut cmd = Command::cargo_bin("ufo").unwrap();
