@@ -77,7 +77,7 @@ fn double_precision_flag_selects_64_bit_bytecode() {
 }
 
 #[test]
-fn default_compile_options_keep_opencl_bytecode_single_precision() {
+fn default_compile_options_keep_interpreter_bytecode_single_precision() {
     let lattice = ufo::mad::parse_mad(
         r#"
 d: DRIFT, L=1.0;

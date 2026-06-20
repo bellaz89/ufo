@@ -1,7 +1,12 @@
+#[cfg(feature = "cubecl")]
 use std::{env, path::PathBuf, time::Instant};
 
+#[cfg(not(feature = "cubecl"))]
+use ufo::Result;
+#[cfg(feature = "cubecl")]
 use ufo::{Lattice, Particle, PassFlags, Result};
 
+#[cfg(feature = "cubecl")]
 #[derive(Clone, Debug)]
 struct Args {
     path: PathBuf,
@@ -14,6 +19,7 @@ struct Args {
     flags: PassFlags,
 }
 
+#[cfg(feature = "cubecl")]
 impl Default for Args {
     fn default() -> Self {
         Self {
@@ -29,7 +35,7 @@ impl Default for Args {
     }
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn main() -> Result<()> {
     let args = parse_args()?;
     println!("implementation,phase,run,ms,particles,turns,samples");
@@ -43,14 +49,14 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-#[cfg(not(feature = "opencl"))]
+#[cfg(not(feature = "cubecl"))]
 fn main() -> Result<()> {
     Err(ufo::UfoError::Parse(
-        "bench_track requires the `opencl` feature".to_string(),
+        "bench_track requires the `cubecl` feature".to_string(),
     ))
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn run_once(args: &Args, phase: &str, run: usize) -> Result<()> {
     let start = Instant::now();
     let lattice = ufo::load_mad_file(&args.path)?;
@@ -82,12 +88,12 @@ fn run_once(args: &Args, phase: &str, run: usize) -> Result<()> {
         args.particles
     ];
     let start = Instant::now();
-    let output = ufo::opencl::track_first_device(
+    let output = ufo::cubecl::track_with_options(
         &tracking,
         &particles,
-        &ufo::opencl::TrackRunOptions {
+        &ufo::cubecl::CubeClTrackRunOptions {
             turns: args.turns,
-            ..ufo::opencl::TrackRunOptions::default()
+            ..ufo::cubecl::CubeClTrackRunOptions::default()
         },
     )?;
     let track_ms = start.elapsed().as_secs_f64() * 1.0e3;
@@ -100,6 +106,7 @@ fn run_once(args: &Args, phase: &str, run: usize) -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "cubecl")]
 fn parse_args() -> Result<Args> {
     let mut args = Args::default();
     let mut iter = env::args().skip(1);
@@ -127,11 +134,13 @@ fn parse_args() -> Result<Args> {
     Ok(args)
 }
 
+#[cfg(feature = "cubecl")]
 fn value(iter: &mut impl Iterator<Item = String>, name: &str) -> Result<String> {
     iter.next()
         .ok_or_else(|| ufo::UfoError::Parse(format!("missing value for `{name}`")))
 }
 
+#[cfg(feature = "cubecl")]
 fn parse_value<T>(iter: &mut impl Iterator<Item = String>, name: &str) -> Result<T>
 where
     T: std::str::FromStr,
@@ -142,6 +151,7 @@ where
         .map_err(|error| ufo::UfoError::Parse(format!("invalid value for `{name}`: {error}")))
 }
 
+#[cfg(feature = "cubecl")]
 fn parse_flag(value: &str) -> Result<PassFlags> {
     match value.to_ascii_lowercase().as_str() {
         "linear" => Ok(PassFlags::LINEAR),
@@ -157,6 +167,7 @@ fn parse_flag(value: &str) -> Result<PassFlags> {
     }
 }
 
+#[cfg(feature = "cubecl")]
 fn select_line_name(lattice: &Lattice, requested: Option<&str>) -> Option<String> {
     if let Some(requested) = requested {
         return Some(requested.to_string());
@@ -167,6 +178,7 @@ fn select_line_name(lattice: &Lattice, requested: Option<&str>) -> Option<String
     lattice.lines.keys().next().cloned()
 }
 
+#[cfg(feature = "cubecl")]
 fn print_help() {
     println!(
         "Usage: cargo run --release --example bench_track -- [options]\n\

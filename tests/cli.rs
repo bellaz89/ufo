@@ -67,17 +67,17 @@ fn cli_compile_reports_bytecode_metadata() {
 }
 
 #[test]
-#[cfg(feature = "opencl")]
-fn cli_accepts_old_list_devices_spelling() {
+#[cfg(feature = "cubecl")]
+fn cli_accepts_list_devices_spelling() {
     let mut cmd = Command::cargo_bin("ufo").unwrap();
     cmd.arg("list_devices")
         .assert()
         .success()
-        .stdout(predicate::str::contains("0:").or(predicate::str::is_empty()));
+        .stdout(predicate::str::contains(":").or(predicate::str::is_empty()));
 }
 
 #[test]
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn cli_exposes_track_command() {
     let mut cmd = Command::cargo_bin("ufo").unwrap();
     cmd.args(["track", "--help"])
@@ -85,11 +85,12 @@ fn cli_exposes_track_command() {
         .success()
         .stdout(predicate::str::contains("--turns"))
         .stdout(predicate::str::contains("--where"))
-        .stdout(predicate::str::contains("--local-instruction-words"));
+        .stdout(predicate::str::contains("--backend"))
+        .stdout(predicate::str::contains("--device"));
 }
 
 #[test]
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn cli_exposes_optics_command() {
     let mut cmd = Command::cargo_bin("ufo").unwrap();
     cmd.args(["optics", "--help"])
@@ -97,33 +98,34 @@ fn cli_exposes_optics_command() {
         .success()
         .stdout(predicate::str::contains("--propagate"))
         .stdout(predicate::str::contains("--where"))
-        .stdout(predicate::str::contains("--local-instruction-words"));
+        .stdout(predicate::str::contains("--backend"))
+        .stdout(predicate::str::contains("--device"));
 }
 
 #[test]
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn cli_exposes_chromaticity_command() {
     let mut cmd = Command::cargo_bin("ufo").unwrap();
     cmd.args(["chromaticity", "--help"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("--local-instruction-words"))
+        .stdout(predicate::str::contains("--backend"))
         .stdout(predicate::str::contains("--flag"));
 }
 
 #[test]
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn cli_exposes_radiation_command() {
     let mut cmd = Command::cargo_bin("ufo").unwrap();
     cmd.args(["radiation", "--help"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("--local-instruction-words"))
+        .stdout(predicate::str::contains("--backend"))
         .stdout(predicate::str::contains("--flag"));
 }
 
 #[test]
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn cli_exposes_closed_orbit_command() {
     let mut cmd = Command::cargo_bin("ufo").unwrap();
     cmd.args(["closed-orbit", "--help"])
@@ -134,23 +136,24 @@ fn cli_exposes_closed_orbit_command() {
 }
 
 #[test]
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn cli_exposes_rdt_command() {
     let mut cmd = Command::cargo_bin("ufo").unwrap();
     cmd.args(["rdt", "--help"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("--local-instruction-words"))
+        .stdout(predicate::str::contains("--backend"))
         .stdout(predicate::str::contains("--flag"));
 }
 
 #[test]
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn cli_exposes_stable_aperture_command() {
     let mut cmd = Command::cargo_bin("ufo").unwrap();
     cmd.args(["stable-aperture", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--x-count"))
-        .stdout(predicate::str::contains("--y-count"));
+        .stdout(predicate::str::contains("--y-count"))
+        .stdout(predicate::str::contains("--device"));
 }

@@ -111,7 +111,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn emits_python_compatible_32_bit_words() {
+    fn emits_legacy_compatible_32_bit_words() {
         let bytecode = Bytecode::from_instructions(
             vec![
                 Instruction::drift("d1", 1.2, true),
@@ -125,7 +125,7 @@ mod tests {
     }
 
     #[test]
-    fn emits_python_compatible_64_bit_words() {
+    fn emits_legacy_compatible_64_bit_words() {
         let bytecode = Bytecode::from_instructions(vec![Instruction::rewind("rw")], true);
         assert_eq!(
             bytecode.emit_bytes().unwrap(),

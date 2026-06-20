@@ -1,6 +1,6 @@
 use crate::{
     Lattice, Line, Particle, PassFlags, Result, TrackCompileOptions, TrackingBytecode,
-    compile_tracking_line, opencl,
+    compile_tracking_line, cubecl,
 };
 
 #[derive(Clone, Debug)]
@@ -61,14 +61,14 @@ impl Track {
     }
 
     pub fn run(&mut self) -> Result<()> {
-        self.run_with_options(&opencl::TrackRunOptions {
+        self.run_with_options(&cubecl::CubeClTrackRunOptions {
             turns: self.turns,
-            ..opencl::TrackRunOptions::default()
+            ..cubecl::CubeClTrackRunOptions::default()
         })
     }
 
-    pub fn run_with_options(&mut self, options: &opencl::TrackRunOptions) -> Result<()> {
-        self.samples = opencl::track_first_device(&self.bytecode, &self.particles, options)?;
+    pub fn run_with_options(&mut self, options: &cubecl::CubeClTrackRunOptions) -> Result<()> {
+        self.samples = cubecl::track_with_options(&self.bytecode, &self.particles, options)?;
         Ok(())
     }
 

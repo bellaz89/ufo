@@ -47,7 +47,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_beam_matches_python_defaults() {
+    fn default_beam_matches_legacy_defaults() {
         let beam = Beam::default();
         assert_eq!(beam.energy, 3.0e9);
         assert_eq!(beam.particle_mass, ELECTRON_MASS);

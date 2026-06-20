@@ -13,12 +13,6 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Command {
-    /// List available OpenCL devices.
-    #[command(alias = "list_devices")]
-    ListDevices {
-        /// Return only one device id, matching the old list_devices(device) API.
-        device: Option<usize>,
-    },
     /// Load a MAD lattice and print a compact summary.
     #[command(alias = "lattice")]
     Load {
@@ -59,15 +53,12 @@ enum Command {
         #[arg(long, value_enum, default_value = "mad")]
         style: DumpStyleArg,
     },
-    /// Build the bundled interpreter kernel for the first OpenCL device.
-    #[cfg(feature = "opencl")]
-    BuildInterpreter {
-        /// Extra OpenCL build options.
-        #[arg(long, default_value = "-cl-fast-relaxed-math -cl-mad-enable")]
-        options: String,
-    },
+    /// List available CubeCL devices.
+    #[cfg(feature = "cubecl")]
+    #[command(alias = "list_devices")]
+    ListDevices,
     /// Track particles through a lattice line with the interpreter backend.
-    #[cfg(feature = "opencl")]
+    #[cfg(feature = "cubecl")]
     Track {
         /// MAD lattice file path.
         path: PathBuf,
@@ -101,21 +92,24 @@ enum Command {
         /// Initial relative momentum deviation.
         #[arg(long, default_value_t = 0.0)]
         dp: f64,
-        /// Emit 64-bit bytecode and double-precision OpenCL kernel.
+        /// Emit 64-bit bytecode and use double-precision CubeCL tracking.
         #[arg(long)]
         double: bool,
-        /// Local interpreter instruction cache size in words.
-        #[arg(long)]
-        local_instruction_words: Option<usize>,
         /// Pass flags, repeatable: --flag linear --flag achromatic.
         #[arg(long = "flag", value_enum)]
         flags: Vec<FlagArg>,
         /// Collapse consecutive affine linear transforms into OP_TRAN_LINEAR.
         #[arg(long)]
         collapse_linear: bool,
+        /// CubeCL backend to use. Defaults to first Vulkan device if present, then CPU.
+        #[arg(long, value_enum, default_value = "auto")]
+        backend: BackendArg,
+        /// Device selector from `list-devices`, for example `vulkan:discrete:0`.
+        #[arg(long)]
+        device: Option<String>,
     },
     /// Compute periodic optics functions for a lattice line.
-    #[cfg(feature = "opencl")]
+    #[cfg(feature = "cubecl")]
     Optics {
         /// MAD lattice file path.
         path: PathBuf,
@@ -152,54 +146,63 @@ enum Command {
         /// Initial vertical dispersion slope for --propagate.
         #[arg(long, default_value_t = 0.0)]
         dpy: f64,
-        /// Emit 64-bit bytecode and double-precision OpenCL kernel.
+        /// Emit 64-bit bytecode and use double-precision CubeCL tracking.
         #[arg(long)]
         double: bool,
-        /// Local interpreter instruction cache size in words.
-        #[arg(long)]
-        local_instruction_words: Option<usize>,
         /// Pass flags, repeatable: --flag linear --flag achromatic.
         #[arg(long = "flag", value_enum)]
         flags: Vec<FlagArg>,
+        /// CubeCL backend to use. Defaults to first Vulkan device if present, then CPU.
+        #[arg(long, value_enum, default_value = "auto")]
+        backend: BackendArg,
+        /// Device selector from `list-devices`, for example `vulkan:discrete:0`.
+        #[arg(long)]
+        device: Option<String>,
     },
     /// Compute natural and sextupole-corrected chromaticity.
-    #[cfg(feature = "opencl")]
+    #[cfg(feature = "cubecl")]
     Chromaticity {
         /// MAD lattice file path.
         path: PathBuf,
         /// Line to analyze. Defaults to RING, or the first parsed line.
         #[arg(short, long)]
         line: Option<String>,
-        /// Emit 64-bit bytecode and double-precision OpenCL kernel.
+        /// Emit 64-bit bytecode and use double-precision CubeCL tracking.
         #[arg(long)]
         double: bool,
-        /// Local interpreter instruction cache size in words.
-        #[arg(long)]
-        local_instruction_words: Option<usize>,
         /// Pass flags, repeatable: --flag linear --flag achromatic.
         #[arg(long = "flag", value_enum)]
         flags: Vec<FlagArg>,
+        /// CubeCL backend to use. Defaults to first Vulkan device if present, then CPU.
+        #[arg(long, value_enum, default_value = "auto")]
+        backend: BackendArg,
+        /// Device selector from `list-devices`, for example `vulkan:discrete:0`.
+        #[arg(long)]
+        device: Option<String>,
     },
     /// Compute radiation integrals and derived beam quantities.
-    #[cfg(feature = "opencl")]
+    #[cfg(feature = "cubecl")]
     Radiation {
         /// MAD lattice file path.
         path: PathBuf,
         /// Line to analyze. Defaults to RING, or the first parsed line.
         #[arg(short, long)]
         line: Option<String>,
-        /// Emit 64-bit bytecode and double-precision OpenCL kernel.
+        /// Emit 64-bit bytecode and use double-precision CubeCL tracking.
         #[arg(long)]
         double: bool,
-        /// Local interpreter instruction cache size in words.
-        #[arg(long)]
-        local_instruction_words: Option<usize>,
         /// Pass flags, repeatable: --flag linear --flag achromatic.
         #[arg(long = "flag", value_enum)]
         flags: Vec<FlagArg>,
+        /// CubeCL backend to use. Defaults to first Vulkan device if present, then CPU.
+        #[arg(long, value_enum, default_value = "auto")]
+        backend: BackendArg,
+        /// Device selector from `list-devices`, for example `vulkan:discrete:0`.
+        #[arg(long)]
+        device: Option<String>,
     },
     /// Find the one-turn closed orbit.
-    #[cfg(feature = "opencl")]
+    #[cfg(feature = "cubecl")]
     #[command(alias = "closed_orbit")]
     ClosedOrbit {
         /// MAD lattice file path.
@@ -216,36 +219,42 @@ enum Command {
         /// Initial simplex coordinate step.
         #[arg(long, default_value_t = 1.0e-4)]
         step: f64,
-        /// Emit 64-bit bytecode and double-precision OpenCL kernel.
+        /// Emit 64-bit bytecode and use double-precision CubeCL tracking.
         #[arg(long)]
         double: bool,
-        /// Local interpreter instruction cache size in words.
-        #[arg(long)]
-        local_instruction_words: Option<usize>,
         /// Pass flags, repeatable: --flag linear --flag achromatic.
         #[arg(long = "flag", value_enum)]
         flags: Vec<FlagArg>,
+        /// CubeCL backend to use. Defaults to first Vulkan device if present, then CPU.
+        #[arg(long, value_enum, default_value = "auto")]
+        backend: BackendArg,
+        /// Device selector from `list-devices`, for example `vulkan:discrete:0`.
+        #[arg(long)]
+        device: Option<String>,
     },
     /// Compute sextupole resonance driving terms.
-    #[cfg(feature = "opencl")]
+    #[cfg(feature = "cubecl")]
     Rdt {
         /// MAD lattice file path.
         path: PathBuf,
         /// Line to analyze. Defaults to RING, or the first parsed line.
         #[arg(short, long)]
         line: Option<String>,
-        /// Emit 64-bit bytecode and double-precision OpenCL kernel.
+        /// Emit 64-bit bytecode and use double-precision CubeCL tracking.
         #[arg(long)]
         double: bool,
-        /// Local interpreter instruction cache size in words.
-        #[arg(long)]
-        local_instruction_words: Option<usize>,
         /// Pass flags, repeatable: --flag linear --flag achromatic.
         #[arg(long = "flag", value_enum)]
         flags: Vec<FlagArg>,
+        /// CubeCL backend to use. Defaults to first Vulkan device if present, then CPU.
+        #[arg(long, value_enum, default_value = "auto")]
+        backend: BackendArg,
+        /// Device selector from `list-devices`, for example `vulkan:discrete:0`.
+        #[arg(long)]
+        device: Option<String>,
     },
     /// Track an x/y grid and report first lost turn per particle.
-    #[cfg(feature = "opencl")]
+    #[cfg(feature = "cubecl")]
     #[command(alias = "stable_aperture")]
     StableAperture {
         /// MAD lattice file path.
@@ -286,15 +295,18 @@ enum Command {
         /// Initial relative momentum deviation.
         #[arg(long, default_value_t = 0.0)]
         dp: f64,
-        /// Emit 64-bit bytecode and double-precision OpenCL kernel.
+        /// Emit 64-bit bytecode and use double-precision CubeCL tracking.
         #[arg(long)]
         double: bool,
-        /// Local interpreter instruction cache size in words.
-        #[arg(long)]
-        local_instruction_words: Option<usize>,
         /// Pass flags, repeatable: --flag linear --flag achromatic.
         #[arg(long = "flag", value_enum)]
         flags: Vec<FlagArg>,
+        /// CubeCL backend to use. Defaults to first Vulkan device if present, then CPU.
+        #[arg(long, value_enum, default_value = "auto")]
+        backend: BackendArg,
+        /// Device selector from `list-devices`, for example `vulkan:discrete:0`.
+        #[arg(long)]
+        device: Option<String>,
     },
 }
 
@@ -317,6 +329,17 @@ enum DumpStyleArg {
     Opa,
 }
 
+#[cfg(feature = "cubecl")]
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum BackendArg {
+    Auto,
+    Cpu,
+    Vulkan,
+    Cuda,
+    Hip,
+    Metal,
+}
+
 fn main() -> ExitCode {
     match run(Cli::parse()) {
         Ok(()) => ExitCode::SUCCESS,
@@ -329,7 +352,8 @@ fn main() -> ExitCode {
 
 fn run(cli: Cli) -> Result<()> {
     match cli.command {
-        Command::ListDevices { device } => list_devices(device),
+        #[cfg(feature = "cubecl")]
+        Command::ListDevices => list_devices(),
         Command::Load { path, line } => load(path, line),
         Command::Compile {
             path,
@@ -344,13 +368,7 @@ fn run(cli: Cli) -> Result<()> {
             output,
             style,
         } => dump(input, output, style),
-        #[cfg(feature = "opencl")]
-        Command::BuildInterpreter { options } => {
-            ufo::opencl::build_interpreter_for_first_device(&options)?;
-            println!("interpreter.cl build ok");
-            Ok(())
-        }
-        #[cfg(feature = "opencl")]
+        #[cfg(feature = "cubecl")]
         Command::Track {
             path,
             line,
@@ -364,9 +382,10 @@ fn run(cli: Cli) -> Result<()> {
             z,
             dp,
             double,
-            local_instruction_words,
             flags,
             collapse_linear,
+            backend,
+            device,
         } => track(TrackArgs {
             path,
             line,
@@ -380,11 +399,12 @@ fn run(cli: Cli) -> Result<()> {
             z,
             dp,
             double,
-            local_instruction_words,
             flags,
             collapse_linear,
+            backend,
+            device,
         }),
-        #[cfg(feature = "opencl")]
+        #[cfg(feature = "cubecl")]
         Command::Optics {
             path,
             line,
@@ -399,8 +419,9 @@ fn run(cli: Cli) -> Result<()> {
             dpx,
             dpy,
             double,
-            local_instruction_words,
             flags,
+            backend,
+            device,
         } => optics(OpticsArgs {
             path,
             line,
@@ -415,38 +436,43 @@ fn run(cli: Cli) -> Result<()> {
             dpx,
             dpy,
             double,
-            local_instruction_words,
             flags,
+            backend,
+            device,
         }),
-        #[cfg(feature = "opencl")]
+        #[cfg(feature = "cubecl")]
         Command::Chromaticity {
             path,
             line,
             double,
-            local_instruction_words,
             flags,
+            backend,
+            device,
         } => chromaticity(ChromaticityArgs {
             path,
             line,
             double,
-            local_instruction_words,
             flags,
+            backend,
+            device,
         }),
-        #[cfg(feature = "opencl")]
+        #[cfg(feature = "cubecl")]
         Command::Radiation {
             path,
             line,
             double,
-            local_instruction_words,
             flags,
+            backend,
+            device,
         } => radiation(ChromaticityArgs {
             path,
             line,
             double,
-            local_instruction_words,
             flags,
+            backend,
+            device,
         }),
-        #[cfg(feature = "opencl")]
+        #[cfg(feature = "cubecl")]
         Command::ClosedOrbit {
             path,
             line,
@@ -454,8 +480,9 @@ fn run(cli: Cli) -> Result<()> {
             iterations,
             step,
             double,
-            local_instruction_words,
             flags,
+            backend,
+            device,
         } => closed_orbit(ClosedOrbitArgs {
             path,
             line,
@@ -463,24 +490,27 @@ fn run(cli: Cli) -> Result<()> {
             iterations,
             step,
             double,
-            local_instruction_words,
             flags,
+            backend,
+            device,
         }),
-        #[cfg(feature = "opencl")]
+        #[cfg(feature = "cubecl")]
         Command::Rdt {
             path,
             line,
             double,
-            local_instruction_words,
             flags,
+            backend,
+            device,
         } => rdt(ChromaticityArgs {
             path,
             line,
             double,
-            local_instruction_words,
             flags,
+            backend,
+            device,
         }),
-        #[cfg(feature = "opencl")]
+        #[cfg(feature = "cubecl")]
         Command::StableAperture {
             path,
             line,
@@ -496,8 +526,9 @@ fn run(cli: Cli) -> Result<()> {
             z,
             dp,
             double,
-            local_instruction_words,
             flags,
+            backend,
+            device,
         } => stable_aperture(StableApertureArgs {
             path,
             line,
@@ -513,8 +544,9 @@ fn run(cli: Cli) -> Result<()> {
             z,
             dp,
             double,
-            local_instruction_words,
             flags,
+            backend,
+            device,
         }),
     }
 }
@@ -537,7 +569,21 @@ impl From<DumpStyleArg> for ufo::DumpStyle {
     }
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
+impl From<BackendArg> for ufo::cubecl::CubeClBackend {
+    fn from(value: BackendArg) -> Self {
+        match value {
+            BackendArg::Auto => Self::Auto,
+            BackendArg::Cpu => Self::Cpu,
+            BackendArg::Vulkan => Self::Vulkan,
+            BackendArg::Cuda => Self::Cuda,
+            BackendArg::Hip => Self::Hip,
+            BackendArg::Metal => Self::Metal,
+        }
+    }
+}
+
+#[cfg(feature = "cubecl")]
 struct TrackArgs {
     path: PathBuf,
     line: Option<String>,
@@ -551,12 +597,13 @@ struct TrackArgs {
     z: f64,
     dp: f64,
     double: bool,
-    local_instruction_words: Option<usize>,
     flags: Vec<FlagArg>,
     collapse_linear: bool,
+    backend: BackendArg,
+    device: Option<String>,
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 struct OpticsArgs {
     path: PathBuf,
     line: Option<String>,
@@ -571,20 +618,22 @@ struct OpticsArgs {
     dpx: f64,
     dpy: f64,
     double: bool,
-    local_instruction_words: Option<usize>,
     flags: Vec<FlagArg>,
+    backend: BackendArg,
+    device: Option<String>,
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 struct ChromaticityArgs {
     path: PathBuf,
     line: Option<String>,
     double: bool,
-    local_instruction_words: Option<usize>,
     flags: Vec<FlagArg>,
+    backend: BackendArg,
+    device: Option<String>,
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 struct ClosedOrbitArgs {
     path: PathBuf,
     line: Option<String>,
@@ -592,11 +641,12 @@ struct ClosedOrbitArgs {
     iterations: usize,
     step: f64,
     double: bool,
-    local_instruction_words: Option<usize>,
     flags: Vec<FlagArg>,
+    backend: BackendArg,
+    device: Option<String>,
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 struct StableApertureArgs {
     path: PathBuf,
     line: Option<String>,
@@ -612,33 +662,153 @@ struct StableApertureArgs {
     z: f64,
     dp: f64,
     double: bool,
-    local_instruction_words: Option<usize>,
     flags: Vec<FlagArg>,
+    backend: BackendArg,
+    device: Option<String>,
 }
 
-fn list_devices(device: Option<usize>) -> Result<()> {
-    #[cfg(feature = "opencl")]
-    {
-        let devices = ufo::opencl::list_devices()?;
-        if let Some(id) = device {
-            if let Some(device) = devices.iter().find(|d| d.index == id) {
-                println!("{}: {}", device.index, device.name);
-            } else {
-                return Err(ufo::UfoError::OpenCl(format!("device {id} not found")));
-            }
-        } else {
-            for device in devices {
-                println!("{}: {}", device.index, device.name);
-            }
-        }
-        Ok(())
+#[cfg(feature = "cubecl")]
+fn list_devices() -> Result<()> {
+    init_cubecl_cache()?;
+    for device in ufo::cubecl::list_devices() {
+        println!("{}", device.selector);
     }
-    #[cfg(not(feature = "opencl"))]
+    Ok(())
+}
+
+#[cfg(feature = "cubecl")]
+fn run_options(
+    backend: BackendArg,
+    device: Option<String>,
+    turns: u32,
+) -> Result<ufo::cubecl::CubeClTrackRunOptions> {
+    init_cubecl_cache()?;
+    let mut backend = ufo::cubecl::CubeClBackend::from(backend);
+    if backend == ufo::cubecl::CubeClBackend::Auto {
+        if let Some(device_backend) = device
+            .as_deref()
+            .and_then(infer_backend_from_device_selector)
+        {
+            backend = device_backend;
+        }
+    }
+    let device = parse_device_selector(backend, device)?;
+    Ok(ufo::cubecl::CubeClTrackRunOptions {
+        turns,
+        backend,
+        device,
+    })
+}
+
+#[cfg(feature = "cubecl")]
+fn parse_device_selector(
+    backend: ufo::cubecl::CubeClBackend,
+    device: Option<String>,
+) -> Result<ufo::cubecl::CubeClDevice> {
+    let Some(raw) = device else {
+        return Ok(ufo::cubecl::CubeClDevice::Default);
+    };
+    let mut selector = raw.trim();
+    for (prefix, parsed_backend) in [
+        ("cpu:", ufo::cubecl::CubeClBackend::Cpu),
+        ("vulkan:", ufo::cubecl::CubeClBackend::Vulkan),
+        ("cuda:", ufo::cubecl::CubeClBackend::Cuda),
+        ("hip:", ufo::cubecl::CubeClBackend::Hip),
+        ("metal:", ufo::cubecl::CubeClBackend::Metal),
+    ] {
+        if let Some(stripped) = selector.strip_prefix(prefix) {
+            selector = stripped;
+            if backend != ufo::cubecl::CubeClBackend::Auto && backend != parsed_backend {
+                return Err(ufo::UfoError::Parse(format!(
+                    "device selector `{raw}` does not match backend {:?}",
+                    backend
+                )));
+            }
+            break;
+        }
+    }
+
+    let device = if selector.eq_ignore_ascii_case("default") {
+        ufo::cubecl::CubeClDevice::Default
+    } else if selector.eq_ignore_ascii_case("cpu")
+        || selector == "0" && backend == ufo::cubecl::CubeClBackend::Cpu
     {
-        let _ = device;
-        Err(ufo::UfoError::Parse(
-            "OpenCL support is disabled; rebuild with the `opencl` feature".to_string(),
-        ))
+        ufo::cubecl::CubeClDevice::WgpuCpu
+    } else if let Some(index) = selector.strip_prefix("discrete:") {
+        ufo::cubecl::CubeClDevice::DiscreteGpu(parse_device_index(index, &raw)?)
+    } else if let Some(index) = selector.strip_prefix("integrated:") {
+        ufo::cubecl::CubeClDevice::IntegratedGpu(parse_device_index(index, &raw)?)
+    } else if let Some(index) = selector.strip_prefix("virtual:") {
+        ufo::cubecl::CubeClDevice::VirtualGpu(parse_device_index(index, &raw)?)
+    } else if let Ok(index) = selector.parse::<usize>() {
+        match backend {
+            ufo::cubecl::CubeClBackend::Vulkan | ufo::cubecl::CubeClBackend::Metal => {
+                ufo::cubecl::CubeClDevice::DiscreteGpu(index)
+            }
+            _ => ufo::cubecl::CubeClDevice::Index(index),
+        }
+    } else {
+        return Err(ufo::UfoError::Parse(format!(
+            "invalid device selector `{raw}`"
+        )));
+    };
+    Ok(device)
+}
+
+#[cfg(feature = "cubecl")]
+fn infer_backend_from_device_selector(selector: &str) -> Option<ufo::cubecl::CubeClBackend> {
+    if selector.starts_with("cpu:") {
+        Some(ufo::cubecl::CubeClBackend::Cpu)
+    } else if selector.starts_with("vulkan:") {
+        Some(ufo::cubecl::CubeClBackend::Vulkan)
+    } else if selector.starts_with("cuda:") {
+        Some(ufo::cubecl::CubeClBackend::Cuda)
+    } else if selector.starts_with("hip:") {
+        Some(ufo::cubecl::CubeClBackend::Hip)
+    } else if selector.starts_with("metal:") {
+        Some(ufo::cubecl::CubeClBackend::Metal)
+    } else {
+        None
+    }
+}
+
+#[cfg(feature = "cubecl")]
+fn parse_device_index(value: &str, raw: &str) -> Result<usize> {
+    value
+        .parse::<usize>()
+        .map_err(|_| ufo::UfoError::Parse(format!("invalid device selector `{raw}`")))
+}
+
+#[cfg(feature = "cubecl")]
+fn init_cubecl_cache() -> Result<()> {
+    let base = std::env::var_os("UFO_CACHE_DIR")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".ufo")))
+        .unwrap_or_else(|| PathBuf::from(".ufo"));
+    let cache = base.join("cache");
+    let cuda_cache = cache.join("cuda");
+    let hip_cache = cache.join("hip");
+    std::fs::create_dir_all(&cuda_cache).map_err(|source| ufo::UfoError::WriteFile {
+        path: cuda_cache.clone(),
+        source,
+    })?;
+    std::fs::create_dir_all(&hip_cache).map_err(|source| ufo::UfoError::WriteFile {
+        path: hip_cache.clone(),
+        source,
+    })?;
+    set_env_if_missing("XDG_CACHE_HOME", &cache);
+    set_env_if_missing("CUDA_CACHE_PATH", &cuda_cache);
+    set_env_if_missing("HIP_CACHE_DIR", &hip_cache);
+    set_env_if_missing("AMD_COMGR_CACHE_DIR", &hip_cache);
+    Ok(())
+}
+
+#[cfg(feature = "cubecl")]
+fn set_env_if_missing(name: &str, value: &std::path::Path) {
+    if std::env::var_os(name).is_none() {
+        unsafe {
+            std::env::set_var(name, value);
+        }
     }
 }
 
@@ -703,7 +873,7 @@ fn compile(
     Ok(())
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn track(args: TrackArgs) -> Result<()> {
     let lattice = ufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line)
@@ -735,11 +905,7 @@ fn track(args: TrackArgs) -> Result<()> {
             collapse_linear: args.collapse_linear,
         },
     )?;
-    track.run_with_options(&ufo::opencl::TrackRunOptions {
-        turns: args.turns,
-        local_instruction_words: args.local_instruction_words,
-        ..ufo::opencl::TrackRunOptions::default()
-    })?;
+    track.run_with_options(&run_options(args.backend, args.device, args.turns)?)?;
 
     println!("line: {line_name}");
     println!("turns: {}", args.turns);
@@ -764,7 +930,7 @@ fn track(args: TrackArgs) -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn optics(args: OpticsArgs) -> Result<()> {
     let lattice = ufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line)
@@ -781,10 +947,7 @@ fn optics(args: OpticsArgs) -> Result<()> {
         where_: args.where_,
         flags,
         is_64bit: args.double,
-        run_options: ufo::opencl::TrackRunOptions {
-            local_instruction_words: args.local_instruction_words,
-            ..ufo::opencl::TrackRunOptions::default()
-        },
+        run_options: run_options(args.backend, args.device, 1)?,
     };
     let optics = if args.propagate {
         ufo::Optics::propagate(
@@ -829,7 +992,7 @@ fn optics(args: OpticsArgs) -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn chromaticity(args: ChromaticityArgs) -> Result<()> {
     let lattice = ufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line)
@@ -849,10 +1012,7 @@ fn chromaticity(args: ChromaticityArgs) -> Result<()> {
             where_: ufo::chromaticity_observations(&lattice, line)?,
             flags,
             is_64bit: args.double,
-            run_options: ufo::opencl::TrackRunOptions {
-                local_instruction_words: args.local_instruction_words,
-                ..ufo::opencl::TrackRunOptions::default()
-            },
+            run_options: run_options(args.backend, args.device, 1)?,
         },
     )?;
     let chromaticity = ufo::chromaticity(&lattice, line, &optics)?;
@@ -865,7 +1025,7 @@ fn chromaticity(args: ChromaticityArgs) -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn radiation(args: ChromaticityArgs) -> Result<()> {
     let lattice = ufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line)
@@ -885,10 +1045,7 @@ fn radiation(args: ChromaticityArgs) -> Result<()> {
             where_: ufo::radiation_observations(&lattice, line)?,
             flags,
             is_64bit: args.double,
-            run_options: ufo::opencl::TrackRunOptions {
-                local_instruction_words: args.local_instruction_words,
-                ..ufo::opencl::TrackRunOptions::default()
-            },
+            run_options: run_options(args.backend, args.device, 1)?,
         },
     )?;
     let radiation = ufo::emittance(&lattice, line, &optics)?;
@@ -906,7 +1063,7 @@ fn radiation(args: ChromaticityArgs) -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn closed_orbit(args: ClosedOrbitArgs) -> Result<()> {
     let lattice = ufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line)
@@ -925,10 +1082,7 @@ fn closed_orbit(args: ClosedOrbitArgs) -> Result<()> {
             dp: args.dp,
             iterations: args.iterations,
             step: args.step,
-            run_options: ufo::opencl::TrackRunOptions {
-                local_instruction_words: args.local_instruction_words,
-                ..ufo::opencl::TrackRunOptions::default()
-            },
+            run_options: run_options(args.backend, args.device, 1)?,
         },
     )?;
 
@@ -941,7 +1095,7 @@ fn closed_orbit(args: ClosedOrbitArgs) -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn rdt(args: ChromaticityArgs) -> Result<()> {
     let lattice = ufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line)
@@ -961,10 +1115,7 @@ fn rdt(args: ChromaticityArgs) -> Result<()> {
             where_: ufo::rdt_observations(&lattice, line)?,
             flags,
             is_64bit: args.double,
-            run_options: ufo::opencl::TrackRunOptions {
-                local_instruction_words: args.local_instruction_words,
-                ..ufo::opencl::TrackRunOptions::default()
-            },
+            run_options: run_options(args.backend, args.device, 1)?,
         },
     )?;
     let terms = ufo::rdt(&lattice, line, &optics)?;
@@ -978,7 +1129,7 @@ fn rdt(args: ChromaticityArgs) -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn stable_aperture(args: StableApertureArgs) -> Result<()> {
     if args.x_count == 0 || args.y_count == 0 {
         return Err(ufo::UfoError::Parse(
@@ -1017,10 +1168,7 @@ fn stable_aperture(args: StableApertureArgs) -> Result<()> {
             flags,
             turns: args.turns,
             is_64bit: args.double,
-            run_options: ufo::opencl::TrackRunOptions {
-                local_instruction_words: args.local_instruction_words,
-                ..ufo::opencl::TrackRunOptions::default()
-            },
+            run_options: run_options(args.backend, args.device, args.turns)?,
         },
     )?;
 
@@ -1035,14 +1183,14 @@ fn stable_aperture(args: StableApertureArgs) -> Result<()> {
     Ok(())
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn print_complex(name: &str, value: ufo::Complex) {
     println!("{name}_re: {:.12}", value.re);
     println!("{name}_im: {:.12}", value.im);
     println!("{name}_abs: {:.12}", value.abs());
 }
 
-#[cfg(feature = "opencl")]
+#[cfg(feature = "cubecl")]
 fn linspace(min: f64, max: f64, count: usize) -> Vec<f64> {
     if count == 1 {
         return vec![min];

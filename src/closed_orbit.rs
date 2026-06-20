@@ -1,6 +1,6 @@
 use crate::{
     Lattice, Line, Particle, PassFlags, Result, TrackCompileOptions, UfoError,
-    compile_tracking_line, opencl,
+    compile_tracking_line, cubecl,
 };
 
 #[derive(Clone, Debug)]
@@ -10,7 +10,7 @@ pub struct ClosedOrbitOptions {
     pub dp: f64,
     pub iterations: usize,
     pub step: f64,
-    pub run_options: opencl::TrackRunOptions,
+    pub run_options: cubecl::CubeClTrackRunOptions,
 }
 
 impl Default for ClosedOrbitOptions {
@@ -21,7 +21,7 @@ impl Default for ClosedOrbitOptions {
             dp: 0.0,
             iterations: 200,
             step: 1.0e-4,
-            run_options: opencl::TrackRunOptions::default(),
+            run_options: cubecl::CubeClTrackRunOptions::default(),
         }
     }
 }
@@ -111,7 +111,7 @@ pub fn closed_orbit(
 
 fn residuals(
     tracking: &crate::TrackingBytecode,
-    options: &opencl::TrackRunOptions,
+    options: &cubecl::CubeClTrackRunOptions,
     points: &[[f64; 4]],
     dp: f64,
 ) -> Result<Vec<f64>> {
@@ -126,7 +126,7 @@ fn residuals(
             ..Particle::default()
         })
         .collect::<Vec<_>>();
-    let output = opencl::track_first_device(tracking, &particles, options)?;
+    let output = cubecl::track_with_options(tracking, &particles, options)?;
     if output.len() != points.len() {
         return Err(UfoError::Parse(
             "closed-orbit tracking output size mismatch".to_string(),

@@ -1,11 +1,11 @@
-use crate::{Lattice, Line, Particle, PassFlags, Result, Track, TrackOptions, opencl};
+use crate::{Lattice, Line, Particle, PassFlags, Result, Track, TrackOptions, cubecl};
 
 #[derive(Clone, Debug)]
 pub struct StableApertureOptions {
     pub flags: PassFlags,
     pub turns: u32,
     pub is_64bit: bool,
-    pub run_options: opencl::TrackRunOptions,
+    pub run_options: cubecl::CubeClTrackRunOptions,
 }
 
 impl Default for StableApertureOptions {
@@ -14,7 +14,7 @@ impl Default for StableApertureOptions {
             flags: PassFlags::empty(),
             turns: 1000,
             is_64bit: false,
-            run_options: opencl::TrackRunOptions::default(),
+            run_options: cubecl::CubeClTrackRunOptions::default(),
         }
     }
 }

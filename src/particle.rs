@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
-/// OpenCL ABI particle for the default single-precision interpreter path.
+/// Interpreter ABI particle for the default single-precision path.
 pub struct Particle32 {
     pub x: f32,
     pub y: f32,
@@ -31,7 +31,7 @@ impl Default for Particle32 {
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
-/// OpenCL ABI particle for double-precision interpreter runs.
+/// Interpreter ABI particle for double-precision runs.
 pub struct Particle64 {
     pub x: f64,
     pub y: f64,
@@ -151,7 +151,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn particle32_matches_opencl_layout() {
+    fn particle32_matches_interpreter_layout() {
         assert_eq!(std::mem::size_of::<Particle32>(), 32);
         let particle = Particle32 {
             px: 0.25,
@@ -164,7 +164,7 @@ mod tests {
     }
 
     #[test]
-    fn particle64_matches_opencl_layout() {
+    fn particle64_matches_interpreter_layout() {
         assert_eq!(std::mem::size_of::<Particle64>(), 56);
         let particle = Particle64 {
             px: 0.25,
@@ -177,7 +177,7 @@ mod tests {
     }
 
     #[test]
-    fn host_particle_keeps_f64_until_opencl_abi_conversion() {
+    fn host_particle_keeps_f64_until_interpreter_abi_conversion() {
         let particle = Particle {
             x: 1.0 / 3.0,
             px: 1.0 / 7.0,

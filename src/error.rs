@@ -48,7 +48,7 @@ pub enum UfoError {
     InvalidBytecodeChunkSize,
     #[error("tracking observation `{0}` is not supported yet")]
     UnsupportedObservation(String),
-    #[cfg(feature = "opencl")]
-    #[error("OpenCL error: {0}")]
-    OpenCl(String),
+    #[cfg(feature = "cubecl")]
+    #[error("CubeCL error: {0}")]
+    CubeCl(String),
 }

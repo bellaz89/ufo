@@ -364,7 +364,7 @@ ring: LINE=(b);
 }
 
 #[test]
-fn line_find_and_locate_match_python_index_semantics() {
+fn line_find_and_locate_match_legacy_index_semantics() {
     let lattice = ufo::mad::parse_mad(
         r#"
 d1: DRIFT, L=1.0;

@@ -1,6 +1,6 @@
 use crate::{
     Lattice, Line, Particle, PassFlags, Result, Track, TrackOptions, UfoError,
-    opencl::TrackRunOptions,
+    cubecl::CubeClTrackRunOptions,
 };
 
 #[derive(Clone, Debug)]
@@ -8,7 +8,7 @@ pub struct OpticsOptions {
     pub where_: Vec<f64>,
     pub flags: PassFlags,
     pub is_64bit: bool,
-    pub run_options: TrackRunOptions,
+    pub run_options: CubeClTrackRunOptions,
 }
 
 impl Default for OpticsOptions {
@@ -17,7 +17,7 @@ impl Default for OpticsOptions {
             where_: Vec::new(),
             flags: PassFlags::LINEAR | PassFlags::ACHROMATIC,
             is_64bit: false,
-            run_options: TrackRunOptions::default(),
+            run_options: CubeClTrackRunOptions::default(),
         }
     }
 }
