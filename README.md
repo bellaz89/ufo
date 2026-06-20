@@ -87,9 +87,9 @@ cargo run -- chromaticity optics/fodo.mad
 The output should resemble:
 
 ```
-vulkan:discrete:0
-vulkan:integrated:0
-cpu:0
+vulkan:integrated:0    AMD Radeon Graphics (RADV RENOIR)
+vulkan:cpu             llvmpipe (LLVM 22.1.6, 256 bits)
+cpu:0                  CubeCL CPU
 ```
 
 The default simulation backend is the first Vulkan device if one is available;

@@ -671,7 +671,11 @@ struct StableApertureArgs {
 fn list_devices() -> Result<()> {
     init_cubecl_cache()?;
     for device in ufo::cubecl::list_devices() {
-        println!("{}", device.selector);
+        if let Some(name) = device.name {
+            println!("{}\t{}", device.selector, name);
+        } else {
+            println!("{}", device.selector);
+        }
     }
     Ok(())
 }

@@ -57,6 +57,7 @@ pub struct CubeClDeviceInfo {
     pub backend: CubeClBackend,
     pub device: CubeClDevice,
     pub selector: String,
+    pub name: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -186,6 +187,7 @@ pub fn list_devices() -> Vec<CubeClDeviceInfo> {
             backend: CubeClBackend::Cpu,
             device: CubeClDevice::Default,
             selector: "cpu:0".to_string(),
+            name: Some("CubeCL CPU".to_string()),
         });
     }
     #[cfg(feature = "cubecl-cuda")]
@@ -196,6 +198,7 @@ pub fn list_devices() -> Vec<CubeClDeviceInfo> {
                 backend: CubeClBackend::Cuda,
                 device: CubeClDevice::Index(index),
                 selector: format!("cuda:{index}"),
+                name: None,
             });
         }
     }
@@ -207,6 +210,7 @@ pub fn list_devices() -> Vec<CubeClDeviceInfo> {
                 backend: CubeClBackend::Hip,
                 device: CubeClDevice::Index(index),
                 selector: format!("hip:{index}"),
+                name: None,
             });
         }
     }
@@ -226,14 +230,44 @@ fn list_wgpu_devices<G: ::cubecl::wgpu::GraphicsApi>(
     backend: CubeClBackend,
     prefix: &str,
 ) -> Vec<CubeClDeviceInfo> {
-    <::cubecl::wgpu::WgpuRuntime as Runtime>::enumerate_all_devices(&G::backend())
+    let instance = ::wgpu::Instance::new(::wgpu::InstanceDescriptor {
+        backends: G::backend().into(),
+        ..::wgpu::InstanceDescriptor::new_without_display_handle()
+    });
+    let adapters = ::pollster::block_on(instance.enumerate_adapters(G::backend().into()));
+    let mut discrete = 0usize;
+    let mut integrated = 0usize;
+    let mut virtual_gpu = 0usize;
+
+    adapters
         .into_iter()
-        .map(|id| {
-            let device = wgpu_device_from_id(id.type_id, id.index_id as usize);
+        .map(|adapter| {
+            let info = adapter.get_info();
+            let device = match info.device_type {
+                ::wgpu::DeviceType::DiscreteGpu => {
+                    let index = discrete;
+                    discrete += 1;
+                    CubeClDevice::DiscreteGpu(index)
+                }
+                ::wgpu::DeviceType::IntegratedGpu => {
+                    let index = integrated;
+                    integrated += 1;
+                    CubeClDevice::IntegratedGpu(index)
+                }
+                ::wgpu::DeviceType::VirtualGpu => {
+                    let index = virtual_gpu;
+                    virtual_gpu += 1;
+                    CubeClDevice::VirtualGpu(index)
+                }
+                ::wgpu::DeviceType::Cpu => CubeClDevice::WgpuCpu,
+                ::wgpu::DeviceType::Other => CubeClDevice::Default,
+            };
+            let selector = format!("{prefix}:{}", device_selector_suffix(device));
             CubeClDeviceInfo {
                 backend,
-                selector: format!("{prefix}:{}", device_selector_suffix(device)),
+                selector,
                 device,
+                name: Some(info.name),
             }
         })
         .collect()
@@ -241,21 +275,10 @@ fn list_wgpu_devices<G: ::cubecl::wgpu::GraphicsApi>(
 
 #[cfg(any(feature = "cubecl-vulkan", feature = "cubecl-metal"))]
 fn first_wgpu_device<G: ::cubecl::wgpu::GraphicsApi>() -> Option<CubeClDevice> {
-    <::cubecl::wgpu::WgpuRuntime as Runtime>::enumerate_all_devices(&G::backend())
+    list_wgpu_devices::<G>(CubeClBackend::Auto, "auto")
         .into_iter()
         .next()
-        .map(|id| wgpu_device_from_id(id.type_id, id.index_id as usize))
-}
-
-#[cfg(any(feature = "cubecl-vulkan", feature = "cubecl-metal"))]
-fn wgpu_device_from_id(type_id: u16, index: usize) -> CubeClDevice {
-    match type_id {
-        0 => CubeClDevice::DiscreteGpu(index),
-        1 => CubeClDevice::IntegratedGpu(index),
-        2 => CubeClDevice::VirtualGpu(index),
-        3 => CubeClDevice::WgpuCpu,
-        _ => CubeClDevice::Default,
-    }
+        .map(|info| info.device)
 }
 
 #[cfg(any(feature = "cubecl-vulkan", feature = "cubecl-metal"))]
