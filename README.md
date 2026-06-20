@@ -118,6 +118,64 @@ cargo check --no-default-features --features cubecl-hip
 cargo check --no-default-features --features cubecl-metal
 ```
 
+## Program Modes And Flags
+
+Top-level modes:
+
+- `load <path>`: parse a MAD lattice and print element, line, length, and angle
+  summary information. Alias: `lattice`.
+- `compile <path>`: compile a lattice line to interpreter bytecode metadata.
+  Alias: `bytecode`.
+- `dump <input> <output>`: write a lattice in `mad`, `elegant`, `at`, or `opa`
+  style with `--style`.
+- `list-devices`: list enabled CubeCL device selectors and adapter names. Alias:
+  `list_devices`.
+- `track <path>`: track one or more particles and print CSV samples.
+- `optics <path>`: compute periodic optics, or propagate explicit initial optics
+  with `--propagate`.
+- `chromaticity <path>`: compute natural and sextupole-corrected chromaticity.
+- `radiation <path>`: compute radiation integrals and derived beam quantities.
+- `closed-orbit <path>`: solve the one-turn closed orbit. Alias:
+  `closed_orbit`.
+- `rdt <path>`: compute sextupole resonance driving terms.
+- `stable-aperture <path>`: track an x/y grid and report first lost turn.
+  Alias: `stable_aperture`.
+
+Common lattice and compiler flags:
+
+- `--line <name>` / `-l <name>` selects a line. If omitted, UFO uses `RING` or
+  the first parsed line.
+- `--double` emits 64-bit bytecode and uses double-precision tracking.
+- `--flag <name>` is repeatable. Supported pass flags are `linear`, `fived`,
+  `exact`, `kick`, `radiation`, `double-precision`, and `achromatic`.
+- `--collapse-linear` is available on `compile` and `track`; it collapses
+  consecutive affine linear transforms into `OP_TRAN_LINEAR`.
+
+Runtime backend flags, available on simulation modes:
+
+- `--backend <auto|cpu|vulkan|cuda|hip|metal>` chooses the CubeCL backend.
+  `auto` tries the first Vulkan device and then falls back to CPU.
+- `--device <selector>` chooses a listed device, for example
+  `vulkan:integrated:0`, `vulkan:discrete:0`, `vulkan:cpu`, `cpu:0`, `cuda:0`,
+  or `hip:0`.
+
+Mode-specific flags:
+
+- `track`: `--turns`, `--particles`, repeatable `--where`, and initial particle
+  coordinates `--x`, `--px`, `--y`, `--py`, `--z`, `--dp`.
+- `optics`: repeatable `--where`; with `--propagate`, initial optics are set by
+  `--ax`, `--bx`, `--dx`, `--dpx`, `--ay`, `--by`, `--dy`, and `--dpy`.
+- `closed-orbit`: `--dp`, `--iterations`, and `--step`.
+- `stable-aperture`: `--turns`, `--x-min`, `--x-max`, `--x-count`, `--y-min`,
+  `--y-max`, `--y-count`, `--px`, `--py`, `--z`, and `--dp`.
+
+For negative numeric values, prefer the equals form so the CLI does not parse
+the value as a new option:
+
+```
+cargo run -- stable-aperture optics/fodo.mad --x-min=-0.001 --y-min=-0.001
+```
+
 ## Documentation
 
 Run `cargo run -- --help` or `cargo run -- <command> --help` for command
