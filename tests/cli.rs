@@ -3,10 +3,10 @@ use predicates::prelude::*;
 
 #[test]
 fn cli_dumps_lattice_to_mad_file() {
-    let output = std::env::temp_dir().join(format!("ufo-dump-{}.mad", std::process::id()));
+    let output = std::env::temp_dir().join(format!("gufo-dump-{}.mad", std::process::id()));
     let _ = std::fs::remove_file(&output);
 
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.args(["dump", "optics/fodo.mad", output.to_str().unwrap()])
         .assert()
         .success()
@@ -19,10 +19,10 @@ fn cli_dumps_lattice_to_mad_file() {
 
 #[test]
 fn cli_dumps_lattice_to_elegant_file() {
-    let output = std::env::temp_dir().join(format!("ufo-dump-{}.lte", std::process::id()));
+    let output = std::env::temp_dir().join(format!("gufo-dump-{}.lte", std::process::id()));
     let _ = std::fs::remove_file(&output);
 
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.args([
         "dump",
         "optics/fodo.mad",
@@ -41,7 +41,7 @@ fn cli_dumps_lattice_to_elegant_file() {
 
 #[test]
 fn cli_loads_lattice_summary() {
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.args(["load", "optics/fodo.mad"])
         .assert()
         .success()
@@ -51,7 +51,7 @@ fn cli_loads_lattice_summary() {
 
 #[test]
 fn cli_compile_reports_bytecode_metadata() {
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.args([
         "compile",
         "optics/fodo.mad",
@@ -68,7 +68,7 @@ fn cli_compile_reports_bytecode_metadata() {
 
 #[test]
 fn cli_compile_prints_decoded_instructions() {
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.args(["compile", "optics/fodo.mad", "--instructions"])
         .assert()
         .success()
@@ -81,7 +81,7 @@ fn cli_compile_prints_decoded_instructions() {
 
 #[test]
 fn cli_compile_help_exposes_instruction_listing() {
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.args(["compile", "--help"])
         .assert()
         .success()
@@ -92,7 +92,7 @@ fn cli_compile_help_exposes_instruction_listing() {
 #[test]
 #[cfg(feature = "cubecl")]
 fn cli_accepts_list_devices_spelling() {
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.arg("list_devices")
         .assert()
         .success()
@@ -102,7 +102,7 @@ fn cli_accepts_list_devices_spelling() {
 #[test]
 #[cfg(feature = "cubecl")]
 fn cli_exposes_track_command() {
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.args(["track", "--help"])
         .assert()
         .success()
@@ -119,7 +119,7 @@ fn cli_exposes_track_command() {
 #[test]
 #[cfg(feature = "cubecl")]
 fn cli_exposes_optics_command() {
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.args(["optics", "--help"])
         .assert()
         .success()
@@ -132,7 +132,7 @@ fn cli_exposes_optics_command() {
 #[test]
 #[cfg(feature = "cubecl")]
 fn cli_exposes_chromaticity_command() {
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.args(["chromaticity", "--help"])
         .assert()
         .success()
@@ -143,7 +143,7 @@ fn cli_exposes_chromaticity_command() {
 #[test]
 #[cfg(feature = "cubecl")]
 fn cli_exposes_radiation_command() {
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.args(["radiation", "--help"])
         .assert()
         .success()
@@ -154,7 +154,7 @@ fn cli_exposes_radiation_command() {
 #[test]
 #[cfg(feature = "cubecl")]
 fn cli_exposes_closed_orbit_command() {
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.args(["closed-orbit", "--help"])
         .assert()
         .success()
@@ -165,7 +165,7 @@ fn cli_exposes_closed_orbit_command() {
 #[test]
 #[cfg(feature = "cubecl")]
 fn cli_exposes_rdt_command() {
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.args(["rdt", "--help"])
         .assert()
         .success()
@@ -176,7 +176,7 @@ fn cli_exposes_rdt_command() {
 #[test]
 #[cfg(feature = "cubecl")]
 fn cli_exposes_stable_aperture_command() {
-    let mut cmd = Command::cargo_bin("ufo").unwrap();
+    let mut cmd = Command::cargo_bin("gufo").unwrap();
     cmd.args(["stable-aperture", "--help"])
         .assert()
         .success()

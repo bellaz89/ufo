@@ -1,4 +1,4 @@
-use ufo::{
+use gufo::{
     Bytecode, Instruction, OP_CAVITY, OP_DUMP, OP_EDGE, OP_NEXT_OFFSET, OP_SET_APERTURE,
     OP_TRAN_LINEAR, PassFlags,
 };
@@ -61,11 +61,11 @@ fn binds_remaining_kernel_opcodes() {
 
 #[test]
 fn double_precision_flag_selects_64_bit_bytecode() {
-    let lattice = ufo::mad::parse_mad("d: DRIFT, L=1.0; ring: LINE=(d);").unwrap();
-    let bytecode = ufo::compile_line(
+    let lattice = gufo::mad::parse_mad("d: DRIFT, L=1.0; ring: LINE=(d);").unwrap();
+    let bytecode = gufo::compile_line(
         &lattice,
         lattice.line("ring").unwrap(),
-        &ufo::compiler::CompileOptions {
+        &gufo::compiler::CompileOptions {
             flags: PassFlags::DOUBLE_PRECISION,
             turns: 1,
             is_64bit: false,
@@ -78,7 +78,7 @@ fn double_precision_flag_selects_64_bit_bytecode() {
 
 #[test]
 fn default_compile_options_keep_interpreter_bytecode_single_precision() {
-    let lattice = ufo::mad::parse_mad(
+    let lattice = gufo::mad::parse_mad(
         r#"
 d: DRIFT, L=1.0;
 ring: LINE=(d);
@@ -86,10 +86,10 @@ ring: LINE=(d);
     )
     .unwrap();
 
-    let bytecode = ufo::compile_line(
+    let bytecode = gufo::compile_line(
         &lattice,
         lattice.line("ring").unwrap(),
-        &ufo::compiler::CompileOptions::default(),
+        &gufo::compiler::CompileOptions::default(),
     )
     .unwrap();
 

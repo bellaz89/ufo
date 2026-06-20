@@ -3,11 +3,15 @@ requires = ["maturin>=1.9,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "ufo"
-version = "0.1.0"
-description = "Unreliable but Fast Optics code"
+name = "gufo"
+version = "1.0.0"
+description = "GPU-based Unreliable but Fast Optics code"
 requires-python = ">=3.9"
 dependencies = ["numpy"]
+authors = [
+    { name = "Michele Carla'" },
+    { name = "Andrea Bellandi" },
+]
 
 [tool.maturin]
 features = ["python"]

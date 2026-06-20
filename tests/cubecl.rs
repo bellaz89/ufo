@@ -3,34 +3,34 @@
 use std::collections::BTreeSet;
 
 fn track_cpu(
-    tracking: &ufo::TrackingBytecode,
-    particles: &[ufo::Particle],
-) -> ufo::Result<Vec<ufo::Particle>> {
-    ufo::cubecl::track_with_options(
+    tracking: &gufo::TrackingBytecode,
+    particles: &[gufo::Particle],
+) -> gufo::Result<Vec<gufo::Particle>> {
+    gufo::cubecl::track_with_options(
         tracking,
         particles,
-        &ufo::cubecl::CubeClTrackRunOptions {
-            backend: ufo::cubecl::CubeClBackend::Cpu,
-            ..ufo::cubecl::CubeClTrackRunOptions::default()
+        &gufo::cubecl::CubeClTrackRunOptions {
+            backend: gufo::cubecl::CubeClBackend::Cpu,
+            ..gufo::cubecl::CubeClTrackRunOptions::default()
         },
     )
 }
 
-fn compile_tracking(input: &str, line: &str, flags: ufo::PassFlags) -> ufo::TrackingBytecode {
-    let lattice = ufo::mad::parse_mad(input).unwrap();
-    ufo::compile_tracking_line(
+fn compile_tracking(input: &str, line: &str, flags: gufo::PassFlags) -> gufo::TrackingBytecode {
+    let lattice = gufo::mad::parse_mad(input).unwrap();
+    gufo::compile_tracking_line(
         &lattice,
         lattice.line(line).unwrap(),
-        &ufo::TrackCompileOptions {
+        &gufo::TrackCompileOptions {
             flags,
             where_: vec![-1.0],
-            ..ufo::TrackCompileOptions::default()
+            ..gufo::TrackCompileOptions::default()
         },
     )
     .unwrap()
 }
 
-fn opcodes(tracking: &ufo::TrackingBytecode) -> BTreeSet<u16> {
+fn opcodes(tracking: &gufo::TrackingBytecode) -> BTreeSet<u16> {
     tracking
         .bytecode
         .instructions()
@@ -39,7 +39,7 @@ fn opcodes(tracking: &ufo::TrackingBytecode) -> BTreeSet<u16> {
         .collect()
 }
 
-fn assert_finite_particle(particle: &ufo::Particle) {
+fn assert_finite_particle(particle: &gufo::Particle) {
     for value in [
         particle.x,
         particle.px,
@@ -57,26 +57,26 @@ fn assert_finite_particle(particle: &ufo::Particle) {
 
 #[test]
 fn tracks_one_drift_on_cubecl_cpu() {
-    let lattice = ufo::mad::parse_mad("d: DRIFT, L=2.0; ring: LINE=(d);").unwrap();
-    let tracking = ufo::compile_tracking_line(
+    let lattice = gufo::mad::parse_mad("d: DRIFT, L=2.0; ring: LINE=(d);").unwrap();
+    let tracking = gufo::compile_tracking_line(
         &lattice,
         lattice.line("ring").unwrap(),
-        &ufo::TrackCompileOptions {
+        &gufo::TrackCompileOptions {
             where_: vec![-1.0],
-            ..ufo::TrackCompileOptions::default()
+            ..gufo::TrackCompileOptions::default()
         },
     )
     .unwrap();
 
-    let output = ufo::cubecl::track_with_options(
+    let output = gufo::cubecl::track_with_options(
         &tracking,
-        &[ufo::Particle {
+        &[gufo::Particle {
             px: 0.25,
-            ..ufo::Particle::default()
+            ..gufo::Particle::default()
         }],
-        &ufo::cubecl::CubeClTrackRunOptions {
-            backend: ufo::cubecl::CubeClBackend::Cpu,
-            ..ufo::cubecl::CubeClTrackRunOptions::default()
+        &gufo::cubecl::CubeClTrackRunOptions {
+            backend: gufo::cubecl::CubeClBackend::Cpu,
+            ..gufo::cubecl::CubeClTrackRunOptions::default()
         },
     )
     .unwrap();
@@ -105,33 +105,33 @@ a: APERTURE, RADIUS=0.1;
 ring: LINE=(a,d,m,q,b,w,c);
 "#,
         "ring",
-        ufo::PassFlags::empty(),
+        gufo::PassFlags::empty(),
     );
     let ops = opcodes(&tracking);
     for op in [
-        ufo::OP_SET_APERTURE,
-        ufo::OP_DRIFT,
-        ufo::OP_KICK,
-        ufo::OP_QUADRUPOLE,
-        ufo::OP_SBEND,
-        ufo::OP_EDGE,
-        ufo::OP_WIRE,
-        ufo::OP_CAVITY,
-        ufo::OP_DUMP,
-        ufo::OP_REWIND,
+        gufo::OP_SET_APERTURE,
+        gufo::OP_DRIFT,
+        gufo::OP_KICK,
+        gufo::OP_QUADRUPOLE,
+        gufo::OP_SBEND,
+        gufo::OP_EDGE,
+        gufo::OP_WIRE,
+        gufo::OP_CAVITY,
+        gufo::OP_DUMP,
+        gufo::OP_REWIND,
     ] {
         assert!(ops.contains(&op), "missing opcode {op}; got {ops:?}");
     }
 
     let output = track_cpu(
         &tracking,
-        &[ufo::Particle {
+        &[gufo::Particle {
             x: 0.001,
             px: 0.0002,
             y: -0.0007,
             py: 0.0003,
             z: 0.1,
-            ..ufo::Particle::default()
+            ..gufo::Particle::default()
         }],
     )
     .unwrap();
@@ -149,17 +149,17 @@ fn covers_teapot_instruction_on_cubecl_cpu() {
     let tracking = compile_tracking(
         "s: SEXTUPOLE, L=0.4, K2=3.0; ring: LINE=(s);",
         "ring",
-        ufo::PassFlags::empty(),
+        gufo::PassFlags::empty(),
     );
     let ops = opcodes(&tracking);
-    assert!(ops.contains(&ufo::OP_TEAPOT), "got {ops:?}");
+    assert!(ops.contains(&gufo::OP_TEAPOT), "got {ops:?}");
 
     let output = track_cpu(
         &tracking,
-        &[ufo::Particle {
+        &[gufo::Particle {
             x: 0.01,
             y: 0.002,
-            ..ufo::Particle::default()
+            ..gufo::Particle::default()
         }],
     )
     .unwrap();
@@ -176,17 +176,17 @@ fn covers_tran_linear_instruction_on_cubecl_cpu() {
     let tracking = compile_tracking(
         "m: MULTIPOLE, KNL={0.0, 0.2}, DX=0.01, DY=-0.02; ring: LINE=(m);",
         "ring",
-        ufo::PassFlags::LINEAR,
+        gufo::PassFlags::LINEAR,
     );
     let ops = opcodes(&tracking);
-    assert!(ops.contains(&ufo::OP_TRAN_LINEAR), "got {ops:?}");
+    assert!(ops.contains(&gufo::OP_TRAN_LINEAR), "got {ops:?}");
 
     let output = track_cpu(
         &tracking,
-        &[ufo::Particle {
+        &[gufo::Particle {
             x: 0.001,
             y: -0.002,
-            ..ufo::Particle::default()
+            ..gufo::Particle::default()
         }],
     )
     .unwrap();
@@ -200,37 +200,37 @@ fn covers_tran_linear_instruction_on_cubecl_cpu() {
 
 #[test]
 fn covers_full_lattice_fixture_on_cubecl_cpu() {
-    let lattice = ufo::load_mad_file("optics/alba.mad").unwrap();
-    let tracking = ufo::compile_tracking_line(
+    let lattice = gufo::load_mad_file("optics/alba.mad").unwrap();
+    let tracking = gufo::compile_tracking_line(
         &lattice,
         lattice.line("RING").unwrap(),
-        &ufo::TrackCompileOptions {
+        &gufo::TrackCompileOptions {
             where_: vec![-1.0],
-            ..ufo::TrackCompileOptions::default()
+            ..gufo::TrackCompileOptions::default()
         },
     )
     .unwrap();
     let ops = opcodes(&tracking);
     for op in [
-        ufo::OP_DRIFT,
-        ufo::OP_QUADRUPOLE,
-        ufo::OP_SBEND,
-        ufo::OP_EDGE,
-        ufo::OP_TEAPOT,
-        ufo::OP_DUMP,
-        ufo::OP_REWIND,
+        gufo::OP_DRIFT,
+        gufo::OP_QUADRUPOLE,
+        gufo::OP_SBEND,
+        gufo::OP_EDGE,
+        gufo::OP_TEAPOT,
+        gufo::OP_DUMP,
+        gufo::OP_REWIND,
     ] {
         assert!(ops.contains(&op), "missing opcode {op}; got {ops:?}");
     }
 
     let output = track_cpu(
         &tracking,
-        &[ufo::Particle {
+        &[gufo::Particle {
             x: 1.0e-4,
             px: 2.0e-5,
             y: -1.0e-4,
             py: 1.0e-5,
-            ..ufo::Particle::default()
+            ..gufo::Particle::default()
         }],
     )
     .unwrap();
@@ -249,26 +249,26 @@ fn covers_full_lattice_fixture_on_cubecl_cpu() {
 
 #[test]
 fn tracks_fractional_observation_inside_drift_on_cubecl_cpu() {
-    let lattice = ufo::mad::parse_mad("d: DRIFT, L=2.0; ring: LINE=(d);").unwrap();
-    let tracking = ufo::compile_tracking_line(
+    let lattice = gufo::mad::parse_mad("d: DRIFT, L=2.0; ring: LINE=(d);").unwrap();
+    let tracking = gufo::compile_tracking_line(
         &lattice,
         lattice.line("ring").unwrap(),
-        &ufo::TrackCompileOptions {
+        &gufo::TrackCompileOptions {
             where_: vec![0.25, -1.0],
-            ..ufo::TrackCompileOptions::default()
+            ..gufo::TrackCompileOptions::default()
         },
     )
     .unwrap();
 
-    let output = ufo::cubecl::track_with_options(
+    let output = gufo::cubecl::track_with_options(
         &tracking,
-        &[ufo::Particle {
+        &[gufo::Particle {
             px: 0.25,
-            ..ufo::Particle::default()
+            ..gufo::Particle::default()
         }],
-        &ufo::cubecl::CubeClTrackRunOptions {
-            backend: ufo::cubecl::CubeClBackend::Cpu,
-            ..ufo::cubecl::CubeClTrackRunOptions::default()
+        &gufo::cubecl::CubeClTrackRunOptions {
+            backend: gufo::cubecl::CubeClBackend::Cpu,
+            ..gufo::cubecl::CubeClTrackRunOptions::default()
         },
     )
     .unwrap();
@@ -288,13 +288,13 @@ fn tracks_fractional_observation_inside_drift_on_cubecl_cpu() {
 
 #[test]
 fn tracks_multiple_particles_on_cubecl_cpu() {
-    let lattice = ufo::mad::parse_mad("d: DRIFT, L=2.0; ring: LINE=(d);").unwrap();
-    let tracking = ufo::compile_tracking_line(
+    let lattice = gufo::mad::parse_mad("d: DRIFT, L=2.0; ring: LINE=(d);").unwrap();
+    let tracking = gufo::compile_tracking_line(
         &lattice,
         lattice.line("ring").unwrap(),
-        &ufo::TrackCompileOptions {
+        &gufo::TrackCompileOptions {
             where_: vec![-1.0],
-            ..ufo::TrackCompileOptions::default()
+            ..gufo::TrackCompileOptions::default()
         },
     )
     .unwrap();
@@ -302,13 +302,13 @@ fn tracks_multiple_particles_on_cubecl_cpu() {
     let output = track_cpu(
         &tracking,
         &[
-            ufo::Particle {
+            gufo::Particle {
                 px: 0.25,
-                ..ufo::Particle::default()
+                ..gufo::Particle::default()
             },
-            ufo::Particle {
+            gufo::Particle {
                 px: -0.5,
-                ..ufo::Particle::default()
+                ..gufo::Particle::default()
             },
         ],
     )
@@ -321,23 +321,23 @@ fn tracks_multiple_particles_on_cubecl_cpu() {
 
 #[test]
 fn tracks_one_drift_in_double_precision_on_cubecl_cpu() {
-    let lattice = ufo::mad::parse_mad("d: DRIFT, L=2.0; ring: LINE=(d);").unwrap();
-    let tracking = ufo::compile_tracking_line(
+    let lattice = gufo::mad::parse_mad("d: DRIFT, L=2.0; ring: LINE=(d);").unwrap();
+    let tracking = gufo::compile_tracking_line(
         &lattice,
         lattice.line("ring").unwrap(),
-        &ufo::TrackCompileOptions {
-            flags: ufo::PassFlags::DOUBLE_PRECISION,
+        &gufo::TrackCompileOptions {
+            flags: gufo::PassFlags::DOUBLE_PRECISION,
             where_: vec![-1.0],
-            ..ufo::TrackCompileOptions::default()
+            ..gufo::TrackCompileOptions::default()
         },
     )
     .unwrap();
 
     let output = track_cpu(
         &tracking,
-        &[ufo::Particle {
+        &[gufo::Particle {
             px: 0.25,
-            ..ufo::Particle::default()
+            ..gufo::Particle::default()
         }],
     )
     .unwrap();
@@ -350,22 +350,23 @@ fn tracks_one_drift_in_double_precision_on_cubecl_cpu() {
 #[test]
 fn applies_aperture_check_on_cubecl_cpu() {
     let lattice =
-        ufo::mad::parse_mad("a: APERTURE, RADIUS=0.1; d: DRIFT, L=1.0; ring: LINE=(a,d);").unwrap();
-    let tracking = ufo::compile_tracking_line(
+        gufo::mad::parse_mad("a: APERTURE, RADIUS=0.1; d: DRIFT, L=1.0; ring: LINE=(a,d);")
+            .unwrap();
+    let tracking = gufo::compile_tracking_line(
         &lattice,
         lattice.line("ring").unwrap(),
-        &ufo::TrackCompileOptions {
+        &gufo::TrackCompileOptions {
             where_: vec![-1.0],
-            ..ufo::TrackCompileOptions::default()
+            ..gufo::TrackCompileOptions::default()
         },
     )
     .unwrap();
 
     let output = track_cpu(
         &tracking,
-        &[ufo::Particle {
+        &[gufo::Particle {
             x: 0.2,
-            ..ufo::Particle::default()
+            ..gufo::Particle::default()
         }],
     )
     .unwrap();
@@ -377,18 +378,18 @@ fn applies_aperture_check_on_cubecl_cpu() {
 
 #[test]
 fn applies_multipole_kick_on_cubecl_cpu() {
-    let lattice = ufo::mad::parse_mad("m: MULTIPOLE, KNL={0.1}; ring: LINE=(m);").unwrap();
-    let tracking = ufo::compile_tracking_line(
+    let lattice = gufo::mad::parse_mad("m: MULTIPOLE, KNL={0.1}; ring: LINE=(m);").unwrap();
+    let tracking = gufo::compile_tracking_line(
         &lattice,
         lattice.line("ring").unwrap(),
-        &ufo::TrackCompileOptions {
+        &gufo::TrackCompileOptions {
             where_: vec![-1.0],
-            ..ufo::TrackCompileOptions::default()
+            ..gufo::TrackCompileOptions::default()
         },
     )
     .unwrap();
 
-    let output = track_cpu(&tracking, &[ufo::Particle::default()]).unwrap();
+    let output = track_cpu(&tracking, &[gufo::Particle::default()]).unwrap();
 
     assert_eq!(output.len(), 1);
     assert!((output[0].px + 0.1).abs() < 1.0e-6);

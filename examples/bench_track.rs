@@ -2,9 +2,9 @@
 use std::{env, path::PathBuf, time::Instant};
 
 #[cfg(not(feature = "cubecl"))]
-use ufo::Result;
+use gufo::Result;
 #[cfg(feature = "cubecl")]
-use ufo::{Lattice, Particle, PassFlags, Result};
+use gufo::{Lattice, Particle, PassFlags, Result};
 
 #[cfg(feature = "cubecl")]
 #[derive(Clone, Debug)]
@@ -51,7 +51,7 @@ fn main() -> Result<()> {
 
 #[cfg(not(feature = "cubecl"))]
 fn main() -> Result<()> {
-    Err(ufo::UfoError::Parse(
+    Err(gufo::UfoError::Parse(
         "bench_track requires the `cubecl` feature".to_string(),
     ))
 }
@@ -59,14 +59,14 @@ fn main() -> Result<()> {
 #[cfg(feature = "cubecl")]
 fn run_once(args: &Args, phase: &str, run: usize) -> Result<()> {
     let start = Instant::now();
-    let lattice = ufo::load_mad_file(&args.path)?;
+    let lattice = gufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line.as_deref())
-        .ok_or_else(|| ufo::UfoError::UnknownReference("no line found".to_string()))?;
+        .ok_or_else(|| gufo::UfoError::UnknownReference("no line found".to_string()))?;
     let line = lattice.line(&line_name)?;
-    let tracking = ufo::compile_tracking_line(
+    let tracking = gufo::compile_tracking_line(
         &lattice,
         line,
-        &ufo::TrackCompileOptions {
+        &gufo::TrackCompileOptions {
             flags: args.flags,
             turns: args.turns,
             is_64bit: args.flags.contains(PassFlags::DOUBLE_PRECISION),
@@ -88,12 +88,12 @@ fn run_once(args: &Args, phase: &str, run: usize) -> Result<()> {
         args.particles
     ];
     let start = Instant::now();
-    let output = ufo::cubecl::track_with_options(
+    let output = gufo::cubecl::track_with_options(
         &tracking,
         &particles,
-        &ufo::cubecl::CubeClTrackRunOptions {
+        &gufo::cubecl::CubeClTrackRunOptions {
             turns: args.turns,
-            ..ufo::cubecl::CubeClTrackRunOptions::default()
+            ..gufo::cubecl::CubeClTrackRunOptions::default()
         },
     )?;
     let track_ms = start.elapsed().as_secs_f64() * 1.0e3;
@@ -125,7 +125,7 @@ fn parse_args() -> Result<Args> {
                 std::process::exit(0);
             }
             other => {
-                return Err(ufo::UfoError::Parse(format!(
+                return Err(gufo::UfoError::Parse(format!(
                     "unknown benchmark argument `{other}`"
                 )));
             }
@@ -137,7 +137,7 @@ fn parse_args() -> Result<Args> {
 #[cfg(feature = "cubecl")]
 fn value(iter: &mut impl Iterator<Item = String>, name: &str) -> Result<String> {
     iter.next()
-        .ok_or_else(|| ufo::UfoError::Parse(format!("missing value for `{name}`")))
+        .ok_or_else(|| gufo::UfoError::Parse(format!("missing value for `{name}`")))
 }
 
 #[cfg(feature = "cubecl")]
@@ -148,7 +148,7 @@ where
 {
     value(iter, name)?
         .parse::<T>()
-        .map_err(|error| ufo::UfoError::Parse(format!("invalid value for `{name}`: {error}")))
+        .map_err(|error| gufo::UfoError::Parse(format!("invalid value for `{name}`: {error}")))
 }
 
 #[cfg(feature = "cubecl")]
@@ -161,7 +161,7 @@ fn parse_flag(value: &str) -> Result<PassFlags> {
         "radiation" => Ok(PassFlags::RADIATION),
         "double" | "double-precision" => Ok(PassFlags::DOUBLE_PRECISION),
         "achromatic" => Ok(PassFlags::ACHROMATIC),
-        other => Err(ufo::UfoError::Parse(format!(
+        other => Err(gufo::UfoError::Parse(format!(
             "unknown benchmark flag `{other}`"
         ))),
     }

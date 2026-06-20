@@ -10,7 +10,7 @@ fn py_error(error: crate::UfoError) -> PyErr {
     PyRuntimeError::new_err(error.to_string())
 }
 
-#[pyclass(name = "Lattice", module = "ufo")]
+#[pyclass(name = "Lattice", module = "gufo")]
 struct PyLattice {
     lattice: Arc<crate::Lattice>,
 }
@@ -42,7 +42,7 @@ impl PyLattice {
     }
 }
 
-#[pyclass(name = "Line", module = "ufo", skip_from_py_object)]
+#[pyclass(name = "Line", module = "gufo", skip_from_py_object)]
 #[derive(Clone)]
 struct PyLine {
     lattice: Arc<crate::Lattice>,
@@ -72,7 +72,7 @@ impl PyLine {
     }
 }
 
-#[pyclass(name = "Track", module = "ufo")]
+#[pyclass(name = "Track", module = "gufo")]
 struct PyTrack {
     line: PyLine,
     flags: crate::PassFlags,
@@ -249,7 +249,7 @@ fn list_devices() {
 }
 
 #[pymodule]
-fn ufo(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn gufo(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyLattice>()?;
     m.add_class::<PyLine>()?;
     m.add_class::<PyTrack>()?;

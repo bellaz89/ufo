@@ -44,7 +44,7 @@ pub fn to_mad_string(lattice: &Lattice) -> String {
 pub fn to_lattice_string(lattice: &Lattice, style: DumpStyle) -> Result<String> {
     let mut out = String::new();
     if style == DumpStyle::At {
-        out.push_str(&at_header("ufo_lattice", &Beam::default()));
+        out.push_str(&at_header("gufo_lattice", &Beam::default()));
     } else if style == DumpStyle::Opa {
         out.push_str(&format!(
             "energy = {};\r\n",

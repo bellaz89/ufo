@@ -1,15 +1,15 @@
 use std::{path::PathBuf, process::ExitCode};
 
 use clap::{Parser, Subcommand, ValueEnum};
+use gufo::{PassFlags, Result};
 #[cfg(feature = "cubecl")]
 use rand::{SeedableRng, rngs::StdRng};
 #[cfg(feature = "cubecl")]
 use rand_distr::{Distribution, Normal};
-use ufo::{PassFlags, Result};
 
 #[derive(Parser, Debug)]
-#[command(name = "ufo")]
-#[command(about = "Unreliable but Fast Optics code")]
+#[command(name = "gufo")]
+#[command(about = "GPU-based Unreliable but Fast Optics code")]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -623,13 +623,13 @@ fn run(cli: Cli) -> Result<()> {
 }
 
 fn dump(input: PathBuf, output: PathBuf, style: DumpStyleArg) -> Result<()> {
-    let lattice = ufo::load_mad_file(&input)?;
-    ufo::dump_lattice_file(&lattice, &output, style.into())?;
+    let lattice = gufo::load_mad_file(&input)?;
+    gufo::dump_lattice_file(&lattice, &output, style.into())?;
     println!("wrote: {}", output.display());
     Ok(())
 }
 
-impl From<DumpStyleArg> for ufo::DumpStyle {
+impl From<DumpStyleArg> for gufo::DumpStyle {
     fn from(value: DumpStyleArg) -> Self {
         match value {
             DumpStyleArg::Mad => Self::Mad,
@@ -641,7 +641,7 @@ impl From<DumpStyleArg> for ufo::DumpStyle {
 }
 
 #[cfg(feature = "cubecl")]
-impl From<BackendArg> for ufo::cubecl::CubeClBackend {
+impl From<BackendArg> for gufo::cubecl::CubeClBackend {
     fn from(value: BackendArg) -> Self {
         match value {
             BackendArg::Auto => Self::Auto,
@@ -752,7 +752,7 @@ struct StableApertureArgs {
 #[cfg(feature = "cubecl")]
 fn list_devices() -> Result<()> {
     init_cubecl_cache()?;
-    for device in ufo::cubecl::list_devices() {
+    for device in gufo::cubecl::list_devices() {
         if let Some(name) = device.name {
             println!("{}\t{}", device.selector, name);
         } else {
@@ -767,10 +767,10 @@ fn run_options(
     backend: BackendArg,
     device: Option<String>,
     turns: u32,
-) -> Result<ufo::cubecl::CubeClTrackRunOptions> {
+) -> Result<gufo::cubecl::CubeClTrackRunOptions> {
     init_cubecl_cache()?;
-    let mut backend = ufo::cubecl::CubeClBackend::from(backend);
-    if backend == ufo::cubecl::CubeClBackend::Auto {
+    let mut backend = gufo::cubecl::CubeClBackend::from(backend);
+    if backend == gufo::cubecl::CubeClBackend::Auto {
         if let Some(device_backend) = device
             .as_deref()
             .and_then(infer_backend_from_device_selector)
@@ -779,7 +779,7 @@ fn run_options(
         }
     }
     let device = parse_device_selector(backend, device)?;
-    Ok(ufo::cubecl::CubeClTrackRunOptions {
+    Ok(gufo::cubecl::CubeClTrackRunOptions {
         turns,
         backend,
         device,
@@ -788,24 +788,24 @@ fn run_options(
 
 #[cfg(feature = "cubecl")]
 fn parse_device_selector(
-    backend: ufo::cubecl::CubeClBackend,
+    backend: gufo::cubecl::CubeClBackend,
     device: Option<String>,
-) -> Result<ufo::cubecl::CubeClDevice> {
+) -> Result<gufo::cubecl::CubeClDevice> {
     let Some(raw) = device else {
-        return Ok(ufo::cubecl::CubeClDevice::Default);
+        return Ok(gufo::cubecl::CubeClDevice::Default);
     };
     let mut selector = raw.trim();
     for (prefix, parsed_backend) in [
-        ("cpu:", ufo::cubecl::CubeClBackend::Cpu),
-        ("vulkan:", ufo::cubecl::CubeClBackend::Vulkan),
-        ("cuda:", ufo::cubecl::CubeClBackend::Cuda),
-        ("hip:", ufo::cubecl::CubeClBackend::Hip),
-        ("metal:", ufo::cubecl::CubeClBackend::Metal),
+        ("cpu:", gufo::cubecl::CubeClBackend::Cpu),
+        ("vulkan:", gufo::cubecl::CubeClBackend::Vulkan),
+        ("cuda:", gufo::cubecl::CubeClBackend::Cuda),
+        ("hip:", gufo::cubecl::CubeClBackend::Hip),
+        ("metal:", gufo::cubecl::CubeClBackend::Metal),
     ] {
         if let Some(stripped) = selector.strip_prefix(prefix) {
             selector = stripped;
-            if backend != ufo::cubecl::CubeClBackend::Auto && backend != parsed_backend {
-                return Err(ufo::UfoError::Parse(format!(
+            if backend != gufo::cubecl::CubeClBackend::Auto && backend != parsed_backend {
+                return Err(gufo::UfoError::Parse(format!(
                     "device selector `{raw}` does not match backend {:?}",
                     backend
                 )));
@@ -815,26 +815,26 @@ fn parse_device_selector(
     }
 
     let device = if selector.eq_ignore_ascii_case("default") {
-        ufo::cubecl::CubeClDevice::Default
+        gufo::cubecl::CubeClDevice::Default
     } else if selector.eq_ignore_ascii_case("cpu")
-        || selector == "0" && backend == ufo::cubecl::CubeClBackend::Cpu
+        || selector == "0" && backend == gufo::cubecl::CubeClBackend::Cpu
     {
-        ufo::cubecl::CubeClDevice::WgpuCpu
+        gufo::cubecl::CubeClDevice::WgpuCpu
     } else if let Some(index) = selector.strip_prefix("discrete:") {
-        ufo::cubecl::CubeClDevice::DiscreteGpu(parse_device_index(index, &raw)?)
+        gufo::cubecl::CubeClDevice::DiscreteGpu(parse_device_index(index, &raw)?)
     } else if let Some(index) = selector.strip_prefix("integrated:") {
-        ufo::cubecl::CubeClDevice::IntegratedGpu(parse_device_index(index, &raw)?)
+        gufo::cubecl::CubeClDevice::IntegratedGpu(parse_device_index(index, &raw)?)
     } else if let Some(index) = selector.strip_prefix("virtual:") {
-        ufo::cubecl::CubeClDevice::VirtualGpu(parse_device_index(index, &raw)?)
+        gufo::cubecl::CubeClDevice::VirtualGpu(parse_device_index(index, &raw)?)
     } else if let Ok(index) = selector.parse::<usize>() {
         match backend {
-            ufo::cubecl::CubeClBackend::Vulkan | ufo::cubecl::CubeClBackend::Metal => {
-                ufo::cubecl::CubeClDevice::DiscreteGpu(index)
+            gufo::cubecl::CubeClBackend::Vulkan | gufo::cubecl::CubeClBackend::Metal => {
+                gufo::cubecl::CubeClDevice::DiscreteGpu(index)
             }
-            _ => ufo::cubecl::CubeClDevice::Index(index),
+            _ => gufo::cubecl::CubeClDevice::Index(index),
         }
     } else {
-        return Err(ufo::UfoError::Parse(format!(
+        return Err(gufo::UfoError::Parse(format!(
             "invalid device selector `{raw}`"
         )));
     };
@@ -842,17 +842,17 @@ fn parse_device_selector(
 }
 
 #[cfg(feature = "cubecl")]
-fn infer_backend_from_device_selector(selector: &str) -> Option<ufo::cubecl::CubeClBackend> {
+fn infer_backend_from_device_selector(selector: &str) -> Option<gufo::cubecl::CubeClBackend> {
     if selector.starts_with("cpu:") {
-        Some(ufo::cubecl::CubeClBackend::Cpu)
+        Some(gufo::cubecl::CubeClBackend::Cpu)
     } else if selector.starts_with("vulkan:") {
-        Some(ufo::cubecl::CubeClBackend::Vulkan)
+        Some(gufo::cubecl::CubeClBackend::Vulkan)
     } else if selector.starts_with("cuda:") {
-        Some(ufo::cubecl::CubeClBackend::Cuda)
+        Some(gufo::cubecl::CubeClBackend::Cuda)
     } else if selector.starts_with("hip:") {
-        Some(ufo::cubecl::CubeClBackend::Hip)
+        Some(gufo::cubecl::CubeClBackend::Hip)
     } else if selector.starts_with("metal:") {
-        Some(ufo::cubecl::CubeClBackend::Metal)
+        Some(gufo::cubecl::CubeClBackend::Metal)
     } else {
         None
     }
@@ -862,23 +862,23 @@ fn infer_backend_from_device_selector(selector: &str) -> Option<ufo::cubecl::Cub
 fn parse_device_index(value: &str, raw: &str) -> Result<usize> {
     value
         .parse::<usize>()
-        .map_err(|_| ufo::UfoError::Parse(format!("invalid device selector `{raw}`")))
+        .map_err(|_| gufo::UfoError::Parse(format!("invalid device selector `{raw}`")))
 }
 
 #[cfg(feature = "cubecl")]
 fn init_cubecl_cache() -> Result<()> {
-    let base = std::env::var_os("UFO_CACHE_DIR")
+    let base = std::env::var_os("GUFO_CACHE_DIR")
         .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".ufo")))
-        .unwrap_or_else(|| PathBuf::from(".ufo"));
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".gufo")))
+        .unwrap_or_else(|| PathBuf::from(".gufo"));
     let cache = base.join("cache");
     let cuda_cache = cache.join("cuda");
     let hip_cache = cache.join("hip");
-    std::fs::create_dir_all(&cuda_cache).map_err(|source| ufo::UfoError::WriteFile {
+    std::fs::create_dir_all(&cuda_cache).map_err(|source| gufo::UfoError::WriteFile {
         path: cuda_cache.clone(),
         source,
     })?;
-    std::fs::create_dir_all(&hip_cache).map_err(|source| ufo::UfoError::WriteFile {
+    std::fs::create_dir_all(&hip_cache).map_err(|source| gufo::UfoError::WriteFile {
         path: hip_cache.clone(),
         source,
     })?;
@@ -899,7 +899,7 @@ fn set_env_if_missing(name: &str, value: &std::path::Path) {
 }
 
 fn load(path: PathBuf, line: Option<String>) -> Result<()> {
-    let lattice = ufo::load_mad_file(&path)?;
+    let lattice = gufo::load_mad_file(&path)?;
     println!("file: {}", path.display());
     println!("elements: {}", lattice.elements.len());
     println!("lines: {}", lattice.lines.len());
@@ -923,17 +923,17 @@ fn compile(
     instructions: bool,
     collapse_linear: bool,
 ) -> Result<()> {
-    let lattice = ufo::load_mad_file(&path)?;
+    let lattice = gufo::load_mad_file(&path)?;
     let line_name = select_line_name(&lattice, line)
-        .ok_or_else(|| ufo::UfoError::UnknownReference("no line found".to_string()))?;
+        .ok_or_else(|| gufo::UfoError::UnknownReference("no line found".to_string()))?;
     let line = lattice.line(&line_name)?;
     let flags = flags
         .into_iter()
         .fold(PassFlags::empty(), |acc, flag| acc | flag.into());
-    let bytecode = ufo::compile_line(
+    let bytecode = gufo::compile_line(
         &lattice,
         line,
-        &ufo::compiler::CompileOptions {
+        &gufo::compiler::CompileOptions {
             flags,
             turns: 1,
             is_64bit: double,
@@ -1039,22 +1039,22 @@ struct GridAxis {
 }
 
 #[cfg(feature = "cubecl")]
-fn build_track_particles(args: &TrackArgs) -> Result<Vec<ufo::Particle>> {
-    let base = ufo::Particle {
+fn build_track_particles(args: &TrackArgs) -> Result<Vec<gufo::Particle>> {
+    let base = gufo::Particle {
         x: args.x,
         px: args.px,
         y: args.y,
         py: args.py,
         z: args.z,
         dp: args.dp,
-        ..ufo::Particle::default()
+        ..gufo::Particle::default()
     };
     let source_count = (!args.particle.is_empty()) as u8
         + args.particles_file.is_some() as u8
         + args.random as u8
         + (!args.grid.is_empty()) as u8;
     if source_count > 1 {
-        return Err(ufo::UfoError::Parse(
+        return Err(gufo::UfoError::Parse(
             "choose only one particle source: --particle, --particles-file, --random, or --grid"
                 .to_string(),
         ));
@@ -1088,14 +1088,14 @@ fn build_track_particles(args: &TrackArgs) -> Result<Vec<ufo::Particle>> {
 }
 
 #[cfg(feature = "cubecl")]
-fn parse_inline_particle(raw: &str, base: ufo::Particle) -> Result<ufo::Particle> {
+fn parse_inline_particle(raw: &str, base: gufo::Particle) -> Result<gufo::Particle> {
     let values = raw
         .split([',', ' ', '\t'])
         .filter(|value| !value.is_empty())
         .map(|value| parse_f64(value, "particle coordinate"))
         .collect::<Result<Vec<_>>>()?;
     if values.is_empty() || values.len() > 6 {
-        return Err(ufo::UfoError::Parse(format!(
+        return Err(gufo::UfoError::Parse(format!(
             "particle `{raw}` must contain 1 to 6 values: x,px,y,py,z,dp"
         )));
     }
@@ -1103,38 +1103,38 @@ fn parse_inline_particle(raw: &str, base: ufo::Particle) -> Result<ufo::Particle
 }
 
 #[cfg(feature = "cubecl")]
-fn read_particles_csv(path: &PathBuf, base: ufo::Particle) -> Result<Vec<ufo::Particle>> {
+fn read_particles_csv(path: &PathBuf, base: gufo::Particle) -> Result<Vec<gufo::Particle>> {
     let mut reader = csv::ReaderBuilder::new()
         .has_headers(false)
         .trim(csv::Trim::All)
         .from_path(path)
-        .map_err(|source| ufo::UfoError::ReadFile {
+        .map_err(|source| gufo::UfoError::ReadFile {
             path: path.clone(),
             source: std::io::Error::other(source),
         })?;
     let mut records = reader.records();
     let Some(first) = records.next() else {
-        return Err(ufo::UfoError::Parse(format!(
+        return Err(gufo::UfoError::Parse(format!(
             "particle CSV `{}` is empty",
             path.display()
         )));
     };
-    let first = first.map_err(|source| ufo::UfoError::Parse(source.to_string()))?;
+    let first = first.map_err(|source| gufo::UfoError::Parse(source.to_string()))?;
     let mut particles = Vec::new();
     if let Some(columns) = particle_csv_columns(&first) {
         for record in records {
-            let record = record.map_err(|source| ufo::UfoError::Parse(source.to_string()))?;
+            let record = record.map_err(|source| gufo::UfoError::Parse(source.to_string()))?;
             particles.push(particle_from_named_record(base, &columns, &record)?);
         }
     } else {
         particles.push(particle_from_csv_record(base, &first)?);
         for record in records {
-            let record = record.map_err(|source| ufo::UfoError::Parse(source.to_string()))?;
+            let record = record.map_err(|source| gufo::UfoError::Parse(source.to_string()))?;
             particles.push(particle_from_csv_record(base, &record)?);
         }
     }
     if particles.is_empty() {
-        return Err(ufo::UfoError::Parse(format!(
+        return Err(gufo::UfoError::Parse(format!(
             "particle CSV `{}` contains no particles",
             path.display()
         )));
@@ -1155,10 +1155,10 @@ fn particle_csv_columns(header: &csv::StringRecord) -> Option<Vec<(usize, Partic
 
 #[cfg(feature = "cubecl")]
 fn particle_from_named_record(
-    mut particle: ufo::Particle,
+    mut particle: gufo::Particle,
     columns: &[(usize, ParticleCoord)],
     record: &csv::StringRecord,
-) -> Result<ufo::Particle> {
+) -> Result<gufo::Particle> {
     for (idx, coord) in columns {
         if let Some(raw) = record.get(*idx)
             && !raw.trim().is_empty()
@@ -1175,11 +1175,11 @@ fn particle_from_named_record(
 
 #[cfg(feature = "cubecl")]
 fn particle_from_csv_record(
-    base: ufo::Particle,
+    base: gufo::Particle,
     record: &csv::StringRecord,
-) -> Result<ufo::Particle> {
+) -> Result<gufo::Particle> {
     if record.len() > 6 {
-        return Err(ufo::UfoError::Parse(
+        return Err(gufo::UfoError::Parse(
             "particle CSV rows without a header may contain at most 6 columns".to_string(),
         ));
     }
@@ -1191,7 +1191,7 @@ fn particle_from_csv_record(
 }
 
 #[cfg(feature = "cubecl")]
-fn particle_from_values(mut particle: ufo::Particle, values: &[f64]) -> ufo::Particle {
+fn particle_from_values(mut particle: gufo::Particle, values: &[f64]) -> gufo::Particle {
     for (idx, value) in values.iter().enumerate() {
         match idx {
             0 => particle.x = *value,
@@ -1208,13 +1208,13 @@ fn particle_from_values(mut particle: ufo::Particle, values: &[f64]) -> ufo::Par
 
 #[cfg(feature = "cubecl")]
 fn random_particles(
-    base: ufo::Particle,
+    base: gufo::Particle,
     count: usize,
     stds: ParticleScales,
     seed: Option<u64>,
-) -> Result<Vec<ufo::Particle>> {
+) -> Result<Vec<gufo::Particle>> {
     if count == 0 {
-        return Err(ufo::UfoError::Parse(
+        return Err(gufo::UfoError::Parse(
             "particles must be greater than zero".to_string(),
         ));
     }
@@ -1227,7 +1227,9 @@ fn random_particles(
         ("dp-std", stds.dp),
     ] {
         if std < 0.0 {
-            return Err(ufo::UfoError::Parse(format!("{name} must be non-negative")));
+            return Err(gufo::UfoError::Parse(format!(
+                "{name} must be non-negative"
+            )));
         }
     }
     let mut rng = match seed {
@@ -1236,14 +1238,14 @@ fn random_particles(
     };
     (0..count)
         .map(|_| {
-            Ok(ufo::Particle {
+            Ok(gufo::Particle {
                 x: sample_normal(base.x, stds.x, &mut rng)?,
                 px: sample_normal(base.px, stds.px, &mut rng)?,
                 y: sample_normal(base.y, stds.y, &mut rng)?,
                 py: sample_normal(base.py, stds.py, &mut rng)?,
                 z: sample_normal(base.z, stds.z, &mut rng)?,
                 dp: sample_normal(base.dp, stds.dp, &mut rng)?,
-                ..ufo::Particle::default()
+                ..gufo::Particle::default()
             })
         })
         .collect()
@@ -1255,14 +1257,14 @@ fn sample_normal(mean: f64, std: f64, rng: &mut StdRng) -> Result<f64> {
         Ok(mean)
     } else {
         let normal = Normal::new(mean, std).map_err(|error| {
-            ufo::UfoError::Parse(format!("invalid normal distribution: {error}"))
+            gufo::UfoError::Parse(format!("invalid normal distribution: {error}"))
         })?;
         Ok(normal.sample(rng))
     }
 }
 
 #[cfg(feature = "cubecl")]
-fn grid_particles(base: ufo::Particle, raw_axes: &[String]) -> Result<Vec<ufo::Particle>> {
+fn grid_particles(base: gufo::Particle, raw_axes: &[String]) -> Result<Vec<gufo::Particle>> {
     let axes = raw_axes
         .iter()
         .map(|raw| parse_grid_axis(raw))
@@ -1288,15 +1290,15 @@ fn parse_grid_axis(raw: &str) -> Result<GridAxis> {
         .split_once('=')
         .or_else(|| raw.split_once(':'))
         .ok_or_else(|| {
-            ufo::UfoError::Parse(format!(
+            gufo::UfoError::Parse(format!(
                 "grid `{raw}` must have format x=min:max:count or x:min:max:count"
             ))
         })?;
     let coord = parse_particle_coord(coord)
-        .ok_or_else(|| ufo::UfoError::Parse(format!("unknown grid coordinate `{coord}`")))?;
+        .ok_or_else(|| gufo::UfoError::Parse(format!("unknown grid coordinate `{coord}`")))?;
     let parts = range.split(':').collect::<Vec<_>>();
     if parts.len() != 3 {
-        return Err(ufo::UfoError::Parse(format!(
+        return Err(gufo::UfoError::Parse(format!(
             "grid `{raw}` must have min, max, and count"
         )));
     }
@@ -1304,9 +1306,9 @@ fn parse_grid_axis(raw: &str) -> Result<GridAxis> {
     let max = parse_f64(parts[1], "grid maximum")?;
     let count = parts[2]
         .parse::<usize>()
-        .map_err(|_| ufo::UfoError::Parse(format!("invalid grid count `{}`", parts[2])))?;
+        .map_err(|_| gufo::UfoError::Parse(format!("invalid grid count `{}`", parts[2])))?;
     if count == 0 {
-        return Err(ufo::UfoError::Parse(
+        return Err(gufo::UfoError::Parse(
             "grid count must be greater than zero".to_string(),
         ));
     }
@@ -1330,7 +1332,7 @@ fn parse_particle_coord(raw: &str) -> Option<ParticleCoord> {
 }
 
 #[cfg(feature = "cubecl")]
-fn set_particle_coord(particle: &mut ufo::Particle, coord: ParticleCoord, value: f64) {
+fn set_particle_coord(particle: &mut gufo::Particle, coord: ParticleCoord, value: f64) {
     match coord {
         ParticleCoord::X => particle.x = value,
         ParticleCoord::Px => particle.px = value,
@@ -1345,26 +1347,26 @@ fn set_particle_coord(particle: &mut ufo::Particle, coord: ParticleCoord, value:
 fn parse_f64(raw: &str, context: &str) -> Result<f64> {
     raw.trim()
         .parse::<f64>()
-        .map_err(|_| ufo::UfoError::Parse(format!("invalid {context} `{raw}`")))
+        .map_err(|_| gufo::UfoError::Parse(format!("invalid {context} `{raw}`")))
 }
 
 #[cfg(feature = "cubecl")]
 fn track(args: TrackArgs) -> Result<()> {
     let particles = build_track_particles(&args)?;
     let particle_count = particles.len();
-    let lattice = ufo::load_mad_file(&args.path)?;
+    let lattice = gufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line)
-        .ok_or_else(|| ufo::UfoError::UnknownReference("no line found".to_string()))?;
+        .ok_or_else(|| gufo::UfoError::UnknownReference("no line found".to_string()))?;
     let line = lattice.line(&line_name)?;
     let flags = args
         .flags
         .into_iter()
         .fold(PassFlags::empty(), |acc, flag| acc | flag.into());
-    let mut track = ufo::Track::new(
+    let mut track = gufo::Track::new(
         &lattice,
         line,
         particles,
-        ufo::TrackOptions {
+        gufo::TrackOptions {
             flags,
             turns: args.turns,
             where_: args.where_,
@@ -1399,9 +1401,9 @@ fn track(args: TrackArgs) -> Result<()> {
 
 #[cfg(feature = "cubecl")]
 fn optics(args: OpticsArgs) -> Result<()> {
-    let lattice = ufo::load_mad_file(&args.path)?;
+    let lattice = gufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line)
-        .ok_or_else(|| ufo::UfoError::UnknownReference("no line found".to_string()))?;
+        .ok_or_else(|| gufo::UfoError::UnknownReference("no line found".to_string()))?;
     let line = lattice.line(&line_name)?;
     let mut flags = args
         .flags
@@ -1410,17 +1412,17 @@ fn optics(args: OpticsArgs) -> Result<()> {
     if flags.is_empty() {
         flags = PassFlags::LINEAR | PassFlags::ACHROMATIC;
     }
-    let options = ufo::OpticsOptions {
+    let options = gufo::OpticsOptions {
         where_: args.where_,
         flags,
         is_64bit: args.double,
         run_options: run_options(args.backend, args.device, 1)?,
     };
     let optics = if args.propagate {
-        ufo::Optics::propagate(
+        gufo::Optics::propagate(
             &lattice,
             line,
-            ufo::InitialOptics {
+            gufo::InitialOptics {
                 ax: args.ax,
                 ay: args.ay,
                 bx: args.bx,
@@ -1433,7 +1435,7 @@ fn optics(args: OpticsArgs) -> Result<()> {
             options,
         )?
     } else {
-        ufo::Optics::periodic(&lattice, line, options)?
+        gufo::Optics::periodic(&lattice, line, options)?
     };
 
     println!("line: {line_name}");
@@ -1461,9 +1463,9 @@ fn optics(args: OpticsArgs) -> Result<()> {
 
 #[cfg(feature = "cubecl")]
 fn chromaticity(args: ChromaticityArgs) -> Result<()> {
-    let lattice = ufo::load_mad_file(&args.path)?;
+    let lattice = gufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line)
-        .ok_or_else(|| ufo::UfoError::UnknownReference("no line found".to_string()))?;
+        .ok_or_else(|| gufo::UfoError::UnknownReference("no line found".to_string()))?;
     let line = lattice.line(&line_name)?;
     let mut flags = args
         .flags
@@ -1472,17 +1474,17 @@ fn chromaticity(args: ChromaticityArgs) -> Result<()> {
     if flags.is_empty() {
         flags = PassFlags::LINEAR | PassFlags::ACHROMATIC;
     }
-    let optics = ufo::Optics::periodic(
+    let optics = gufo::Optics::periodic(
         &lattice,
         line,
-        ufo::OpticsOptions {
-            where_: ufo::chromaticity_observations(&lattice, line)?,
+        gufo::OpticsOptions {
+            where_: gufo::chromaticity_observations(&lattice, line)?,
             flags,
             is_64bit: args.double,
             run_options: run_options(args.backend, args.device, 1)?,
         },
     )?;
-    let chromaticity = ufo::chromaticity(&lattice, line, &optics)?;
+    let chromaticity = gufo::chromaticity(&lattice, line, &optics)?;
 
     println!("line: {line_name}");
     println!("natural_dqx: {:.12}", chromaticity.natural[0]);
@@ -1494,9 +1496,9 @@ fn chromaticity(args: ChromaticityArgs) -> Result<()> {
 
 #[cfg(feature = "cubecl")]
 fn radiation(args: ChromaticityArgs) -> Result<()> {
-    let lattice = ufo::load_mad_file(&args.path)?;
+    let lattice = gufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line)
-        .ok_or_else(|| ufo::UfoError::UnknownReference("no line found".to_string()))?;
+        .ok_or_else(|| gufo::UfoError::UnknownReference("no line found".to_string()))?;
     let line = lattice.line(&line_name)?;
     let mut flags = args
         .flags
@@ -1505,18 +1507,18 @@ fn radiation(args: ChromaticityArgs) -> Result<()> {
     if flags.is_empty() {
         flags = PassFlags::LINEAR | PassFlags::ACHROMATIC;
     }
-    let optics = ufo::Optics::periodic(
+    let optics = gufo::Optics::periodic(
         &lattice,
         line,
-        ufo::OpticsOptions {
-            where_: ufo::radiation_observations(&lattice, line)?,
+        gufo::OpticsOptions {
+            where_: gufo::radiation_observations(&lattice, line)?,
             flags,
             is_64bit: args.double,
             run_options: run_options(args.backend, args.device, 1)?,
         },
     )?;
-    let radiation = ufo::emittance(&lattice, line, &optics)?;
-    let beam = ufo::Beam::default();
+    let radiation = gufo::emittance(&lattice, line, &optics)?;
+    let beam = gufo::Beam::default();
 
     println!("line: {line_name}");
     println!("i1: {:.12}", radiation.i1);
@@ -1532,18 +1534,18 @@ fn radiation(args: ChromaticityArgs) -> Result<()> {
 
 #[cfg(feature = "cubecl")]
 fn closed_orbit(args: ClosedOrbitArgs) -> Result<()> {
-    let lattice = ufo::load_mad_file(&args.path)?;
+    let lattice = gufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line)
-        .ok_or_else(|| ufo::UfoError::UnknownReference("no line found".to_string()))?;
+        .ok_or_else(|| gufo::UfoError::UnknownReference("no line found".to_string()))?;
     let line = lattice.line(&line_name)?;
     let flags = args
         .flags
         .into_iter()
         .fold(PassFlags::empty(), |acc, flag| acc | flag.into());
-    let orbit = ufo::closed_orbit(
+    let orbit = gufo::closed_orbit(
         &lattice,
         line,
-        ufo::ClosedOrbitOptions {
+        gufo::ClosedOrbitOptions {
             flags,
             is_64bit: args.double,
             dp: args.dp,
@@ -1564,9 +1566,9 @@ fn closed_orbit(args: ClosedOrbitArgs) -> Result<()> {
 
 #[cfg(feature = "cubecl")]
 fn rdt(args: ChromaticityArgs) -> Result<()> {
-    let lattice = ufo::load_mad_file(&args.path)?;
+    let lattice = gufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line)
-        .ok_or_else(|| ufo::UfoError::UnknownReference("no line found".to_string()))?;
+        .ok_or_else(|| gufo::UfoError::UnknownReference("no line found".to_string()))?;
     let line = lattice.line(&line_name)?;
     let mut flags = args
         .flags
@@ -1575,17 +1577,17 @@ fn rdt(args: ChromaticityArgs) -> Result<()> {
     if flags.is_empty() {
         flags = PassFlags::LINEAR | PassFlags::ACHROMATIC;
     }
-    let optics = ufo::Optics::periodic(
+    let optics = gufo::Optics::periodic(
         &lattice,
         line,
-        ufo::OpticsOptions {
-            where_: ufo::rdt_observations(&lattice, line)?,
+        gufo::OpticsOptions {
+            where_: gufo::rdt_observations(&lattice, line)?,
             flags,
             is_64bit: args.double,
             run_options: run_options(args.backend, args.device, 1)?,
         },
     )?;
-    let terms = ufo::rdt(&lattice, line, &optics)?;
+    let terms = gufo::rdt(&lattice, line, &optics)?;
 
     println!("line: {line_name}");
     print_complex("f3000", terms.f3000);
@@ -1599,13 +1601,13 @@ fn rdt(args: ChromaticityArgs) -> Result<()> {
 #[cfg(feature = "cubecl")]
 fn stable_aperture(args: StableApertureArgs) -> Result<()> {
     if args.x_count == 0 || args.y_count == 0 {
-        return Err(ufo::UfoError::Parse(
+        return Err(gufo::UfoError::Parse(
             "x-count and y-count must be greater than zero".to_string(),
         ));
     }
-    let lattice = ufo::load_mad_file(&args.path)?;
+    let lattice = gufo::load_mad_file(&args.path)?;
     let line_name = select_line_name(&lattice, args.line)
-        .ok_or_else(|| ufo::UfoError::UnknownReference("no line found".to_string()))?;
+        .ok_or_else(|| gufo::UfoError::UnknownReference("no line found".to_string()))?;
     let line = lattice.line(&line_name)?;
     let flags = args
         .flags
@@ -1616,22 +1618,22 @@ fn stable_aperture(args: StableApertureArgs) -> Result<()> {
     let mut particles = Vec::with_capacity(xs.len() * ys.len());
     for y in &ys {
         for x in &xs {
-            particles.push(ufo::Particle {
+            particles.push(gufo::Particle {
                 x: *x,
                 px: args.px,
                 y: *y,
                 py: args.py,
                 z: args.z,
                 dp: args.dp,
-                ..ufo::Particle::default()
+                ..gufo::Particle::default()
             });
         }
     }
-    let result = ufo::stable_aperture(
+    let result = gufo::stable_aperture(
         &lattice,
         line,
         particles,
-        ufo::StableApertureOptions {
+        gufo::StableApertureOptions {
             flags,
             turns: args.turns,
             is_64bit: args.double,
@@ -1651,7 +1653,7 @@ fn stable_aperture(args: StableApertureArgs) -> Result<()> {
 }
 
 #[cfg(feature = "cubecl")]
-fn print_complex(name: &str, value: ufo::Complex) {
+fn print_complex(name: &str, value: gufo::Complex) {
     println!("{name}_re: {:.12}", value.re);
     println!("{name}_im: {:.12}", value.im);
     println!("{name}_abs: {:.12}", value.abs());
@@ -1666,7 +1668,7 @@ fn linspace(min: f64, max: f64, count: usize) -> Vec<f64> {
     (0..count).map(|idx| min + idx as f64 * step).collect()
 }
 
-fn select_line_name(lattice: &ufo::Lattice, requested: Option<String>) -> Option<String> {
+fn select_line_name(lattice: &gufo::Lattice, requested: Option<String>) -> Option<String> {
     requested.or_else(|| {
         lattice
             .lines
@@ -1743,7 +1745,7 @@ mod tests {
 
     #[test]
     fn csv_particles_support_named_columns_and_base_defaults() {
-        let path = std::env::temp_dir().join(format!("ufo-particles-{}.csv", std::process::id()));
+        let path = std::env::temp_dir().join(format!("gufo-particles-{}.csv", std::process::id()));
         std::fs::write(&path, "x,px,dp\n0.1,0.2,0.3\n0.4,0.5,0.6\n").unwrap();
         let mut args = track_args();
         args.particles_file = Some(path.clone());

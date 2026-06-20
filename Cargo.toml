@@ -1,9 +1,10 @@
 [package]
-name = "ufo"
-version = "0.1.0"
+name = "gufo"
+version = "1.0.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
-description = "Unreliable but Fast Optics code"
+description = "GPU-based Unreliable but Fast Optics code"
+authors = ["Michele Carla'", "Andrea Bellandi"]
 
 [lib]
 crate-type = ["rlib", "cdylib"]

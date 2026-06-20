@@ -1,40 +1,38 @@
 
 ```
-                   ██    ██ ███████  ██████  
-                   ██    ██ ██      ██    ██ 
-                   ██    ██ █████   ██    ██ 
-                   ██    ██ ██      ██    ██ 
-                    ██████  ██       ██████ 
-
- 
-                          \__/  ^__^
-                          (oo)  (oo)
-                         _/--\  /--\_
-                   _.--===0=0====0=0===--._
-                  (________________________)
-                       /  \________/  \
-                      /                \
- 
- 
-       An Unreliable, but (Undoubtedly) Fast Optics code
+              ██████  ██    ██ ███████  ██████  
+             ██       ██    ██ ██      ██    ██ 
+             ██   ███ ██    ██ █████   ██    ██ 
+             ██    ██ ██    ██ ██      ██    ██ 
+              ██████   ██████  ██       ██████  
 
 
-                  Developed by Michele Carla',
+                         .-.
+                        (o o)
+                        | O \
+                         \   \
+                          `~~~'
+
+
+       GPU-based Unreliable, but Fast Optics code
+
+
+          Developed by Michele Carla' and Andrea Bellandi,
     based on the initial work of Manu Canals and Michele Carla'
            with the support of ALBA (www.cells.es)
 
-                https://github.com/mcarla/ufo
+                https://github.com/bellaz89/gufo
                 
 
 
 ```
 
-...***UFO*** is a fast accelerator optics toolkit designed with GPU in mind, nevertheless it gets along well with CPUs too.
-UFO is not meant to be a general purpose tool, instead it aims to performance at expenses of flexibility and ease of use...
+...***GUFO*** is a fast accelerator optics toolkit designed with GPU in mind, nevertheless it gets along well with CPUs too. GUFO stands for GPU-based Unreliable, but Fast Optics.
+GUFO is not meant to be a general purpose tool, instead it aims to performance at expenses of flexibility and ease of use...
 
 ## Rust Crate
 
-UFO is now a Rust crate. The implementation includes:
+GUFO is now a Rust crate. The implementation includes:
 
 - a typed lattice and element model,
 - a `pest`-based parser for the existing MAD fixture dialect,
@@ -47,7 +45,7 @@ UFO is now a Rust crate. The implementation includes:
 
 ## Requirements
 
-The following packages are required to run UFO:
+The following packages are required to run GUFO:
 
 - Rust 1.96 or later
 - Cargo
@@ -57,11 +55,11 @@ The following packages are required to run UFO:
 
 ## Install
 
-The latest development version of UFO can be retrieved from github and installed with:
+The latest development version of GUFO can be retrieved from github and installed with:
 
 ```
-git clone https://github.com/mcarla/ufo
-cd ufo
+git clone https://github.com/bellaz89/gufo
+cd gufo
 cargo test
 ```
 
@@ -94,7 +92,7 @@ cpu:0                  CubeCL CPU
 ```
 
 The default simulation backend is the first Vulkan device if one is available;
-otherwise UFO falls back to the CubeCL CPU runtime. Runtime commands accept
+otherwise GUFO falls back to the CubeCL CPU runtime. Runtime commands accept
 explicit backend and device selectors:
 
 ```
@@ -105,8 +103,8 @@ cargo run -- track optics/fodo.mad --backend cuda --device 0
 
 The `list_devices` alias is also accepted for `list-devices`.
 
-Compiled runtime caches are placed under `~/.ufo/cache` by default. Set
-`UFO_CACHE_DIR` to choose another base directory; existing runtime cache
+Compiled runtime caches are placed under `~/.gufo/cache` by default. Set
+`GUFO_CACHE_DIR` to choose another base directory; existing runtime cache
 environment variables are left unchanged.
 
 Optional backend feature examples:
@@ -144,7 +142,7 @@ Top-level modes:
 
 Common lattice and compiler flags:
 
-- `--line <name>` / `-l <name>` selects a line. If omitted, UFO uses `RING` or
+- `--line <name>` / `-l <name>` selects a line. If omitted, GUFO uses `RING` or
   the first parsed line.
 - `--double` emits 64-bit bytecode and uses double-precision tracking.
 - `--flag <name>` is repeatable. Supported pass flags are `linear`, `fived`,
@@ -206,7 +204,7 @@ documentation.
 
 ## Python Interface
 
-UFO also exposes an optional PyO3 extension module that follows the original
+GUFO also exposes an optional PyO3 extension module that follows the original
 Python workflow for lattice loading and tracking:
 
 ```
@@ -220,16 +218,16 @@ otherwise CPU.
 Example:
 
 ```python
-import ufo
+import gufo
 
-lat = ufo.Lattice("optics/fodo.mad")
+lat = gufo.Lattice("optics/fodo.mad")
 
-tr = ufo.Track(
+tr = gufo.Track(
     lat.RING,
     turns=1,
     particles=2,
     where=[-1],
-    flags=ufo.FIVED,
+    flags=gufo.FIVED,
     parameters=["x"],
 )
 
