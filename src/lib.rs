@@ -18,6 +18,8 @@ pub mod mad;
 #[cfg(feature = "cubecl")]
 pub mod optics;
 pub mod particle;
+#[cfg(feature = "python")]
+mod python;
 #[cfg(feature = "cubecl")]
 pub mod radiation;
 #[cfg(feature = "cubecl")]

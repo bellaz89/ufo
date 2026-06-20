@@ -108,6 +108,10 @@ fn cli_exposes_track_command() {
         .success()
         .stdout(predicate::str::contains("--turns"))
         .stdout(predicate::str::contains("--where"))
+        .stdout(predicate::str::contains("--particle"))
+        .stdout(predicate::str::contains("--particles-file"))
+        .stdout(predicate::str::contains("--random"))
+        .stdout(predicate::str::contains("--grid"))
         .stdout(predicate::str::contains("--backend"))
         .stdout(predicate::str::contains("--device"));
 }

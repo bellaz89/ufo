@@ -1,6 +1,10 @@
 use std::{path::PathBuf, process::ExitCode};
 
 use clap::{Parser, Subcommand, ValueEnum};
+#[cfg(feature = "cubecl")]
+use rand::{SeedableRng, rngs::StdRng};
+#[cfg(feature = "cubecl")]
+use rand_distr::{Distribution, Normal};
 use ufo::{PassFlags, Result};
 
 #[derive(Parser, Debug)]
@@ -71,9 +75,42 @@ enum Command {
         /// Number of turns.
         #[arg(long, default_value_t = 1)]
         turns: u32,
-        /// Number of particles with identical initial coordinates.
+        /// Number of particles for repeated or random generation.
         #[arg(long, default_value_t = 1)]
         particles: usize,
+        /// Inline particle, repeatable. Format: x,px,y,py,z,dp.
+        #[arg(long = "particle")]
+        particle: Vec<String>,
+        /// CSV particle table. Header columns may include x, px, y, py, z, dp.
+        #[arg(long = "particles-file")]
+        particles_file: Option<PathBuf>,
+        /// Randomly generate particles around the initial coordinates.
+        #[arg(long)]
+        random: bool,
+        /// Random generator seed.
+        #[arg(long)]
+        seed: Option<u64>,
+        /// Horizontal position standard deviation for --random.
+        #[arg(long, default_value_t = 0.0)]
+        x_std: f64,
+        /// Horizontal momentum standard deviation for --random.
+        #[arg(long, default_value_t = 0.0)]
+        px_std: f64,
+        /// Vertical position standard deviation for --random.
+        #[arg(long, default_value_t = 0.0)]
+        y_std: f64,
+        /// Vertical momentum standard deviation for --random.
+        #[arg(long, default_value_t = 0.0)]
+        py_std: f64,
+        /// Longitudinal position standard deviation for --random.
+        #[arg(long, default_value_t = 0.0)]
+        z_std: f64,
+        /// Relative momentum deviation standard deviation for --random.
+        #[arg(long, default_value_t = 0.0)]
+        dp_std: f64,
+        /// Grid axis, repeatable. Format: x=min:max:count or x:min:max:count.
+        #[arg(long = "grid", allow_hyphen_values = true)]
+        grid: Vec<String>,
         /// Observation position, repeatable. Use -1 for end of turn.
         #[arg(long = "where", default_value = "-1", allow_hyphen_values = true)]
         where_: Vec<f64>,
@@ -386,6 +423,17 @@ fn run(cli: Cli) -> Result<()> {
             line,
             turns,
             particles,
+            particle,
+            particles_file,
+            random,
+            seed,
+            x_std,
+            px_std,
+            y_std,
+            py_std,
+            z_std,
+            dp_std,
+            grid,
             where_,
             x,
             px,
@@ -403,6 +451,17 @@ fn run(cli: Cli) -> Result<()> {
             line,
             turns,
             particles,
+            particle,
+            particles_file,
+            random,
+            seed,
+            x_std,
+            px_std,
+            y_std,
+            py_std,
+            z_std,
+            dp_std,
+            grid,
             where_,
             x,
             px,
@@ -601,6 +660,17 @@ struct TrackArgs {
     line: Option<String>,
     turns: u32,
     particles: usize,
+    particle: Vec<String>,
+    particles_file: Option<PathBuf>,
+    random: bool,
+    seed: Option<u64>,
+    x_std: f64,
+    px_std: f64,
+    y_std: f64,
+    py_std: f64,
+    z_std: f64,
+    dp_std: f64,
+    grid: Vec<String>,
     where_: Vec<f64>,
     x: f64,
     px: f64,
@@ -941,16 +1011,36 @@ fn format_args(args: &[f64]) -> String {
 }
 
 #[cfg(feature = "cubecl")]
-fn track(args: TrackArgs) -> Result<()> {
-    let lattice = ufo::load_mad_file(&args.path)?;
-    let line_name = select_line_name(&lattice, args.line)
-        .ok_or_else(|| ufo::UfoError::UnknownReference("no line found".to_string()))?;
-    let line = lattice.line(&line_name)?;
-    let flags = args
-        .flags
-        .into_iter()
-        .fold(PassFlags::empty(), |acc, flag| acc | flag.into());
-    let initial = ufo::Particle {
+#[derive(Clone, Copy)]
+struct ParticleScales {
+    x: f64,
+    px: f64,
+    y: f64,
+    py: f64,
+    z: f64,
+    dp: f64,
+}
+
+#[cfg(feature = "cubecl")]
+#[derive(Clone, Copy)]
+enum ParticleCoord {
+    X,
+    Px,
+    Y,
+    Py,
+    Z,
+    Dp,
+}
+
+#[cfg(feature = "cubecl")]
+struct GridAxis {
+    coord: ParticleCoord,
+    values: Vec<f64>,
+}
+
+#[cfg(feature = "cubecl")]
+fn build_track_particles(args: &TrackArgs) -> Result<Vec<ufo::Particle>> {
+    let base = ufo::Particle {
         x: args.x,
         px: args.px,
         y: args.y,
@@ -959,7 +1049,317 @@ fn track(args: TrackArgs) -> Result<()> {
         dp: args.dp,
         ..ufo::Particle::default()
     };
-    let particles = vec![initial; args.particles];
+    let source_count = (!args.particle.is_empty()) as u8
+        + args.particles_file.is_some() as u8
+        + args.random as u8
+        + (!args.grid.is_empty()) as u8;
+    if source_count > 1 {
+        return Err(ufo::UfoError::Parse(
+            "choose only one particle source: --particle, --particles-file, --random, or --grid"
+                .to_string(),
+        ));
+    }
+    if !args.particle.is_empty() {
+        args.particle
+            .iter()
+            .map(|raw| parse_inline_particle(raw, base))
+            .collect()
+    } else if let Some(path) = &args.particles_file {
+        read_particles_csv(path, base)
+    } else if args.random {
+        random_particles(
+            base,
+            args.particles,
+            ParticleScales {
+                x: args.x_std,
+                px: args.px_std,
+                y: args.y_std,
+                py: args.py_std,
+                z: args.z_std,
+                dp: args.dp_std,
+            },
+            args.seed,
+        )
+    } else if !args.grid.is_empty() {
+        grid_particles(base, &args.grid)
+    } else {
+        Ok(vec![base; args.particles])
+    }
+}
+
+#[cfg(feature = "cubecl")]
+fn parse_inline_particle(raw: &str, base: ufo::Particle) -> Result<ufo::Particle> {
+    let values = raw
+        .split([',', ' ', '\t'])
+        .filter(|value| !value.is_empty())
+        .map(|value| parse_f64(value, "particle coordinate"))
+        .collect::<Result<Vec<_>>>()?;
+    if values.is_empty() || values.len() > 6 {
+        return Err(ufo::UfoError::Parse(format!(
+            "particle `{raw}` must contain 1 to 6 values: x,px,y,py,z,dp"
+        )));
+    }
+    Ok(particle_from_values(base, &values))
+}
+
+#[cfg(feature = "cubecl")]
+fn read_particles_csv(path: &PathBuf, base: ufo::Particle) -> Result<Vec<ufo::Particle>> {
+    let mut reader = csv::ReaderBuilder::new()
+        .has_headers(false)
+        .trim(csv::Trim::All)
+        .from_path(path)
+        .map_err(|source| ufo::UfoError::ReadFile {
+            path: path.clone(),
+            source: std::io::Error::other(source),
+        })?;
+    let mut records = reader.records();
+    let Some(first) = records.next() else {
+        return Err(ufo::UfoError::Parse(format!(
+            "particle CSV `{}` is empty",
+            path.display()
+        )));
+    };
+    let first = first.map_err(|source| ufo::UfoError::Parse(source.to_string()))?;
+    let mut particles = Vec::new();
+    if let Some(columns) = particle_csv_columns(&first) {
+        for record in records {
+            let record = record.map_err(|source| ufo::UfoError::Parse(source.to_string()))?;
+            particles.push(particle_from_named_record(base, &columns, &record)?);
+        }
+    } else {
+        particles.push(particle_from_csv_record(base, &first)?);
+        for record in records {
+            let record = record.map_err(|source| ufo::UfoError::Parse(source.to_string()))?;
+            particles.push(particle_from_csv_record(base, &record)?);
+        }
+    }
+    if particles.is_empty() {
+        return Err(ufo::UfoError::Parse(format!(
+            "particle CSV `{}` contains no particles",
+            path.display()
+        )));
+    }
+    Ok(particles)
+}
+
+#[cfg(feature = "cubecl")]
+fn particle_csv_columns(header: &csv::StringRecord) -> Option<Vec<(usize, ParticleCoord)>> {
+    let mut columns = Vec::new();
+    for (idx, name) in header.iter().enumerate() {
+        if let Some(coord) = parse_particle_coord(name) {
+            columns.push((idx, coord));
+        }
+    }
+    (!columns.is_empty()).then_some(columns)
+}
+
+#[cfg(feature = "cubecl")]
+fn particle_from_named_record(
+    mut particle: ufo::Particle,
+    columns: &[(usize, ParticleCoord)],
+    record: &csv::StringRecord,
+) -> Result<ufo::Particle> {
+    for (idx, coord) in columns {
+        if let Some(raw) = record.get(*idx)
+            && !raw.trim().is_empty()
+        {
+            set_particle_coord(
+                &mut particle,
+                *coord,
+                parse_f64(raw, "CSV particle coordinate")?,
+            );
+        }
+    }
+    Ok(particle)
+}
+
+#[cfg(feature = "cubecl")]
+fn particle_from_csv_record(
+    base: ufo::Particle,
+    record: &csv::StringRecord,
+) -> Result<ufo::Particle> {
+    if record.len() > 6 {
+        return Err(ufo::UfoError::Parse(
+            "particle CSV rows without a header may contain at most 6 columns".to_string(),
+        ));
+    }
+    let values = record
+        .iter()
+        .map(|value| parse_f64(value, "CSV particle coordinate"))
+        .collect::<Result<Vec<_>>>()?;
+    Ok(particle_from_values(base, &values))
+}
+
+#[cfg(feature = "cubecl")]
+fn particle_from_values(mut particle: ufo::Particle, values: &[f64]) -> ufo::Particle {
+    for (idx, value) in values.iter().enumerate() {
+        match idx {
+            0 => particle.x = *value,
+            1 => particle.px = *value,
+            2 => particle.y = *value,
+            3 => particle.py = *value,
+            4 => particle.z = *value,
+            5 => particle.dp = *value,
+            _ => unreachable!(),
+        }
+    }
+    particle
+}
+
+#[cfg(feature = "cubecl")]
+fn random_particles(
+    base: ufo::Particle,
+    count: usize,
+    stds: ParticleScales,
+    seed: Option<u64>,
+) -> Result<Vec<ufo::Particle>> {
+    if count == 0 {
+        return Err(ufo::UfoError::Parse(
+            "particles must be greater than zero".to_string(),
+        ));
+    }
+    for (name, std) in [
+        ("x-std", stds.x),
+        ("px-std", stds.px),
+        ("y-std", stds.y),
+        ("py-std", stds.py),
+        ("z-std", stds.z),
+        ("dp-std", stds.dp),
+    ] {
+        if std < 0.0 {
+            return Err(ufo::UfoError::Parse(format!("{name} must be non-negative")));
+        }
+    }
+    let mut rng = match seed {
+        Some(seed) => StdRng::seed_from_u64(seed),
+        None => StdRng::from_entropy(),
+    };
+    (0..count)
+        .map(|_| {
+            Ok(ufo::Particle {
+                x: sample_normal(base.x, stds.x, &mut rng)?,
+                px: sample_normal(base.px, stds.px, &mut rng)?,
+                y: sample_normal(base.y, stds.y, &mut rng)?,
+                py: sample_normal(base.py, stds.py, &mut rng)?,
+                z: sample_normal(base.z, stds.z, &mut rng)?,
+                dp: sample_normal(base.dp, stds.dp, &mut rng)?,
+                ..ufo::Particle::default()
+            })
+        })
+        .collect()
+}
+
+#[cfg(feature = "cubecl")]
+fn sample_normal(mean: f64, std: f64, rng: &mut StdRng) -> Result<f64> {
+    if std == 0.0 {
+        Ok(mean)
+    } else {
+        let normal = Normal::new(mean, std).map_err(|error| {
+            ufo::UfoError::Parse(format!("invalid normal distribution: {error}"))
+        })?;
+        Ok(normal.sample(rng))
+    }
+}
+
+#[cfg(feature = "cubecl")]
+fn grid_particles(base: ufo::Particle, raw_axes: &[String]) -> Result<Vec<ufo::Particle>> {
+    let axes = raw_axes
+        .iter()
+        .map(|raw| parse_grid_axis(raw))
+        .collect::<Result<Vec<_>>>()?;
+    let mut particles = vec![base];
+    for axis in axes {
+        let mut next = Vec::with_capacity(particles.len() * axis.values.len());
+        for particle in &particles {
+            for value in &axis.values {
+                let mut particle = *particle;
+                set_particle_coord(&mut particle, axis.coord, *value);
+                next.push(particle);
+            }
+        }
+        particles = next;
+    }
+    Ok(particles)
+}
+
+#[cfg(feature = "cubecl")]
+fn parse_grid_axis(raw: &str) -> Result<GridAxis> {
+    let (coord, range) = raw
+        .split_once('=')
+        .or_else(|| raw.split_once(':'))
+        .ok_or_else(|| {
+            ufo::UfoError::Parse(format!(
+                "grid `{raw}` must have format x=min:max:count or x:min:max:count"
+            ))
+        })?;
+    let coord = parse_particle_coord(coord)
+        .ok_or_else(|| ufo::UfoError::Parse(format!("unknown grid coordinate `{coord}`")))?;
+    let parts = range.split(':').collect::<Vec<_>>();
+    if parts.len() != 3 {
+        return Err(ufo::UfoError::Parse(format!(
+            "grid `{raw}` must have min, max, and count"
+        )));
+    }
+    let min = parse_f64(parts[0], "grid minimum")?;
+    let max = parse_f64(parts[1], "grid maximum")?;
+    let count = parts[2]
+        .parse::<usize>()
+        .map_err(|_| ufo::UfoError::Parse(format!("invalid grid count `{}`", parts[2])))?;
+    if count == 0 {
+        return Err(ufo::UfoError::Parse(
+            "grid count must be greater than zero".to_string(),
+        ));
+    }
+    Ok(GridAxis {
+        coord,
+        values: linspace(min, max, count),
+    })
+}
+
+#[cfg(feature = "cubecl")]
+fn parse_particle_coord(raw: &str) -> Option<ParticleCoord> {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "x" => Some(ParticleCoord::X),
+        "px" => Some(ParticleCoord::Px),
+        "y" => Some(ParticleCoord::Y),
+        "py" => Some(ParticleCoord::Py),
+        "z" => Some(ParticleCoord::Z),
+        "dp" => Some(ParticleCoord::Dp),
+        _ => None,
+    }
+}
+
+#[cfg(feature = "cubecl")]
+fn set_particle_coord(particle: &mut ufo::Particle, coord: ParticleCoord, value: f64) {
+    match coord {
+        ParticleCoord::X => particle.x = value,
+        ParticleCoord::Px => particle.px = value,
+        ParticleCoord::Y => particle.y = value,
+        ParticleCoord::Py => particle.py = value,
+        ParticleCoord::Z => particle.z = value,
+        ParticleCoord::Dp => particle.dp = value,
+    }
+}
+
+#[cfg(feature = "cubecl")]
+fn parse_f64(raw: &str, context: &str) -> Result<f64> {
+    raw.trim()
+        .parse::<f64>()
+        .map_err(|_| ufo::UfoError::Parse(format!("invalid {context} `{raw}`")))
+}
+
+#[cfg(feature = "cubecl")]
+fn track(args: TrackArgs) -> Result<()> {
+    let particles = build_track_particles(&args)?;
+    let particle_count = particles.len();
+    let lattice = ufo::load_mad_file(&args.path)?;
+    let line_name = select_line_name(&lattice, args.line)
+        .ok_or_else(|| ufo::UfoError::UnknownReference("no line found".to_string()))?;
+    let line = lattice.line(&line_name)?;
+    let flags = args
+        .flags
+        .into_iter()
+        .fold(PassFlags::empty(), |acc, flag| acc | flag.into());
     let mut track = ufo::Track::new(
         &lattice,
         line,
@@ -976,10 +1376,10 @@ fn track(args: TrackArgs) -> Result<()> {
 
     println!("line: {line_name}");
     println!("turns: {}", args.turns);
-    println!("particles: {}", args.particles);
+    println!("particles: {}", particle_count);
     println!("samples: {}", track.samples.len());
     println!("sample,particle,x,px,y,py,z,dp,passed_elements,alive");
-    for (sample, chunk) in track.samples.chunks(args.particles).enumerate() {
+    for (sample, chunk) in track.samples.chunks(particle_count).enumerate() {
         for (particle, value) in chunk.iter().enumerate() {
             println!(
                 "{sample},{particle},{:.12},{:.12},{:.12},{:.12},{:.12},{:.12},{},{}",
@@ -1287,5 +1687,126 @@ impl From<FlagArg> for PassFlags {
             FlagArg::DoublePrecision => PassFlags::DOUBLE_PRECISION,
             FlagArg::Achromatic => PassFlags::ACHROMATIC,
         }
+    }
+}
+
+#[cfg(all(test, feature = "cubecl"))]
+mod tests {
+    use super::*;
+
+    fn track_args() -> TrackArgs {
+        TrackArgs {
+            path: PathBuf::from("optics/fodo.mad"),
+            line: None,
+            turns: 1,
+            particles: 1,
+            particle: Vec::new(),
+            particles_file: None,
+            random: false,
+            seed: None,
+            x_std: 0.0,
+            px_std: 0.0,
+            y_std: 0.0,
+            py_std: 0.0,
+            z_std: 0.0,
+            dp_std: 0.0,
+            grid: Vec::new(),
+            where_: vec![-1.0],
+            x: 1.0,
+            px: 2.0,
+            y: 3.0,
+            py: 4.0,
+            z: 5.0,
+            dp: 6.0,
+            double: false,
+            flags: Vec::new(),
+            collapse_linear: false,
+            backend: BackendArg::Cpu,
+            device: None,
+        }
+    }
+
+    #[test]
+    fn inline_particles_override_base_coordinates() {
+        let mut args = track_args();
+        args.particle = vec!["0.1,0.2,0.3,0.4,0.5,0.6".to_string(), "7,8".to_string()];
+
+        let particles = build_track_particles(&args).unwrap();
+
+        assert_eq!(particles.len(), 2);
+        assert_eq!(particles[0].x, 0.1);
+        assert_eq!(particles[0].dp, 0.6);
+        assert_eq!(particles[1].x, 7.0);
+        assert_eq!(particles[1].px, 8.0);
+        assert_eq!(particles[1].y, args.y);
+    }
+
+    #[test]
+    fn csv_particles_support_named_columns_and_base_defaults() {
+        let path = std::env::temp_dir().join(format!("ufo-particles-{}.csv", std::process::id()));
+        std::fs::write(&path, "x,px,dp\n0.1,0.2,0.3\n0.4,0.5,0.6\n").unwrap();
+        let mut args = track_args();
+        args.particles_file = Some(path.clone());
+
+        let particles = build_track_particles(&args).unwrap();
+
+        assert_eq!(particles.len(), 2);
+        assert_eq!(particles[0].x, 0.1);
+        assert_eq!(particles[0].px, 0.2);
+        assert_eq!(particles[0].y, args.y);
+        assert_eq!(particles[1].dp, 0.6);
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn random_particles_are_seeded_and_centered_on_base() {
+        let mut args = track_args();
+        args.random = true;
+        args.seed = Some(7);
+        args.particles = 3;
+        args.x_std = 1.0e-3;
+
+        let first = build_track_particles(&args).unwrap();
+        let second = build_track_particles(&args).unwrap();
+
+        assert_eq!(first, second);
+        assert_eq!(first.len(), 3);
+        assert_ne!(first[0].x, args.x);
+        assert_eq!(first[0].px, args.px);
+    }
+
+    #[test]
+    fn grid_particles_build_cartesian_product() {
+        let mut args = track_args();
+        args.grid = vec!["x=0:1:2".to_string(), "y=-1:1:3".to_string()];
+
+        let particles = build_track_particles(&args).unwrap();
+
+        assert_eq!(particles.len(), 6);
+        assert_eq!(
+            particles
+                .iter()
+                .map(|particle| particle.x)
+                .collect::<Vec<_>>(),
+            vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+        );
+        assert_eq!(
+            particles
+                .iter()
+                .map(|particle| particle.y)
+                .collect::<Vec<_>>(),
+            vec![-1.0, 0.0, 1.0, -1.0, 0.0, 1.0]
+        );
+    }
+
+    #[test]
+    fn particle_sources_are_mutually_exclusive() {
+        let mut args = track_args();
+        args.random = true;
+        args.particle = vec!["1,2,3,4,5,6".to_string()];
+
+        let error = build_track_particles(&args).unwrap_err().to_string();
+
+        assert!(error.contains("choose only one particle source"));
     }
 }

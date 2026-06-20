@@ -5,15 +5,22 @@ edition = "2024"
 license = "GPL-3.0-or-later"
 description = "Unreliable but Fast Optics code"
 
+[lib]
+crate-type = ["rlib", "cdylib"]
+
 [dependencies]
 bitflags = "2.6"
 bytemuck = { version = "1.18", features = ["derive"] }
 clap = { version = "4.5", features = ["derive"] }
+csv = "1.3"
 cubecl = { version = "0.10", default-features = false, features = ["std", "stdlib"], optional = true }
 nalgebra = "0.33"
 pest = "2.7"
 pest_derive = "2.7"
 pollster = { version = "0.4", optional = true }
+pyo3 = { version = "0.29", features = ["extension-module"], optional = true }
+rand = "0.8"
+rand_distr = "0.4"
 thiserror = "2.0"
 wgpu = { version = "29.0.3", optional = true }
 
@@ -30,3 +37,4 @@ cubecl-vulkan = ["cubecl", "cubecl/vulkan", "dep:pollster", "dep:wgpu"]
 cubecl-cuda = ["cubecl", "cubecl/cuda"]
 cubecl-hip = ["cubecl", "cubecl/hip"]
 cubecl-metal = ["cubecl", "cubecl/metal", "dep:pollster", "dep:wgpu"]
+python = ["cubecl-cpu", "cubecl-vulkan", "dep:pyo3"]

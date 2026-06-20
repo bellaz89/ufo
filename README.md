@@ -165,22 +165,81 @@ Runtime backend flags, available on simulation modes:
 
 Mode-specific flags:
 
-- `track`: `--turns`, `--particles`, repeatable `--where`, and initial particle
-  coordinates `--x`, `--px`, `--y`, `--py`, `--z`, `--dp`.
+- `track`: `--turns`, repeatable `--where`, initial particle averages
+  `--x`, `--px`, `--y`, `--py`, `--z`, `--dp`, and one particle source.
+  If no source is selected, `--particles <n>` repeats the same initial
+  particle.
 - `optics`: repeatable `--where`; with `--propagate`, initial optics are set by
   `--ax`, `--bx`, `--dx`, `--dpx`, `--ay`, `--by`, `--dy`, and `--dpy`.
 - `closed-orbit`: `--dp`, `--iterations`, and `--step`.
 - `stable-aperture`: `--turns`, `--x-min`, `--x-max`, `--x-count`, `--y-min`,
   `--y-max`, `--y-count`, `--px`, `--py`, `--z`, and `--dp`.
 
+Track particle sources:
+
+- Inline particles: repeat `--particle x,px,y,py,z,dp`. Missing trailing
+  coordinates keep the base values from `--x`, `--px`, `--y`, `--py`, `--z`,
+  and `--dp`.
+- CSV particles: `--particles-file bunch.csv`. Header columns may include
+  `x`, `px`, `y`, `py`, `z`, and `dp`; omitted columns keep the base values.
+  Headerless CSV rows are read in `x,px,y,py,z,dp` order.
+- Random beam: `--random --particles <n>` samples normal distributions around
+  the base coordinates. Use `--x-std`, `--px-std`, `--y-std`, `--py-std`,
+  `--z-std`, and `--dp-std`; `--seed <n>` makes the generated beam
+  reproducible.
+- Grid beam: repeat `--grid coord=min:max:count`, for example
+  `--grid x=-0.001:0.001:5 --grid y=-0.001:0.001:5`. Grid axes form a
+  Cartesian product.
+
 For negative numeric values, prefer the equals form so the CLI does not parse
 the value as a new option:
 
 ```
 cargo run -- stable-aperture optics/fodo.mad --x-min=-0.001 --y-min=-0.001
+cargo run -- track optics/fodo.mad --grid x=-0.001:0.001:5 --grid y=-0.001:0.001:5
 ```
 
 ## Documentation
 
 Run `cargo run -- --help` or `cargo run -- <command> --help` for command
 documentation.
+
+## Python Interface
+
+UFO also exposes an optional PyO3 extension module that follows the original
+Python workflow for lattice loading and tracking:
+
+```
+maturin develop --features python
+```
+
+The `python` feature enables CubeCL CPU and CubeCL WGPU/Vulkan support. Python
+tracking uses the same `auto` policy as the CLI: first Vulkan when available,
+otherwise CPU.
+
+Example:
+
+```python
+import ufo
+
+lat = ufo.Lattice("optics/fodo.mad")
+
+tr = ufo.Track(
+    lat.RING,
+    turns=1,
+    particles=2,
+    where=[-1],
+    flags=ufo.FIVED,
+    parameters=["x"],
+)
+
+tr.parameters[:, 0] = [0.001, 0.002]
+tr.run()
+
+print(tr.tracks.shape)   # (particles, samples, 6)
+print(tr.tracks[:, 0, 0])
+```
+
+The compatibility layer currently supports coordinate parameters `x`, `px`,
+`y`, `py`, `z`, and `dp`, mutable NumPy `parameters`, NumPy `tracks`, `Lattice`
+line access such as `lat.RING`, and the original pass-flag constants.
