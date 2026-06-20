@@ -208,16 +208,32 @@ GUFO also exposes an optional PyO3 extension module that follows the original
 Python workflow for lattice loading and tracking:
 
 ```
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip maturin numpy
+```
+
+Install the extension into the active virtual environment for development:
+
+```
 maturin develop --features python
+```
+
+Alternatively, build and install a wheel:
+
+```
+maturin build --features python
+python -m pip install target/wheels/gufo-*.whl
 ```
 
 The `python` feature enables CubeCL CPU and CubeCL WGPU/Vulkan support. Python
 tracking uses the same `auto` policy as the CLI: first Vulkan when available,
 otherwise CPU.
 
-Example:
+Smoke test the installed module:
 
-```python
+```bash
+python - <<'PY'
 import gufo
 
 lat = gufo.Lattice("optics/fodo.mad")
@@ -236,6 +252,7 @@ tr.run()
 
 print(tr.tracks.shape)   # (particles, samples, 6)
 print(tr.tracks[:, 0, 0])
+PY
 ```
 
 The compatibility layer currently supports coordinate parameters `x`, `px`,
